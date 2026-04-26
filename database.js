@@ -1,30 +1,23 @@
-const sqlite3 = require("sqlite3").verbose();
-const path = require("path");
+const { Pool } = require("pg");
+require("dotenv").config();
 
-const db = new sqlite3.Database(
-  path.join(__dirname, "spotivibes.db")
-);
+/* ---------------- POSTGRES POOL ---------------- */
 
-/* ---------------- CREATE TABLES ---------------- */
-
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS songs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT,
-      artist TEXT,
-      audioUrl TEXT
-    )
-  `);
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT,
-      message TEXT,
-      time TEXT
-    )
-  `);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production"
+    ? { rejectUnauthorized: false }
+    : false
 });
 
-module.exports = db;
+/* ---------------- OPTIONAL: TEST CONNECTION ---------------- */
+
+pool.connect()
+  .then(() => {
+    console.log("✅ PostgreSQL connected successfully");
+  })
+  .catch((err) => {
+    console.error("❌ PostgreSQL connection error:", err);
+  });
+
+module.exports = pool;
