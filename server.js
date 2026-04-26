@@ -109,7 +109,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-/* ---------------- ROUTES ---------------- */
+/* ---------------- PAGES ---------------- */
 
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
@@ -162,11 +162,17 @@ app.post("/api/login", (req, res) => {
 
   db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
 
-    if (!user) return res.status(401).json({ error: "Invalid login" });
+    if (err) return res.status(500).json({ error: "Database error" });
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid login" });
+    }
 
     const match = await bcrypt.compare(password, user.password);
 
-    if (!match) return res.status(401).json({ error: "Invalid login" });
+    if (!match) {
+      return res.status(401).json({ error: "Invalid login" });
+    }
 
     req.session.user = {
       id: user.id,
@@ -178,7 +184,10 @@ app.post("/api/login", (req, res) => {
 
     addNotification("LOGIN", `User logged in: ${email}`);
 
-    res.json({ success: true, user: req.session.user });
+    res.json({
+      success: true,
+      user: req.session.user
+    });
   });
 });
 
@@ -189,11 +198,14 @@ app.post("/api/logout", (req, res) => {
 });
 
 app.get("/api/me", (req, res) => {
-  if (!req.session.user) {
-    return res.json({ loggedIn: false });
+  if (!req.session || !req.session.user) {
+    return res.json({ loggedIn: false, user: null });
   }
 
-  res.json({ loggedIn: true, user: req.session.user });
+  res.json({
+    loggedIn: true,
+    user: req.session.user
+  });
 });
 
 /* ---------------- USERS ---------------- */
@@ -240,9 +252,13 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), (req, res) =>
   res.json({ success: true });
 });
 
-/* ---------------- BACKGROUND ---------------- */
+/* ---------------- BACKGROUND UPLOAD ---------------- */
 
 app.post("/api/upload-bg", requireAdmin, upload.any(), (req, res) => {
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
 
   const file = req.files[0];
   const fileUrl = "/uploads/" + file.filename;
@@ -258,9 +274,15 @@ app.post("/api/upload-bg", requireAdmin, upload.any(), (req, res) => {
 });
 
 app.get("/api/background", requireLogin, (req, res) => {
-  db.get("SELECT value FROM settings WHERE key = ?", ["background"], (err, row) => {
-    res.json({ url: row ? row.value : null });
-  });
+  db.get(
+    "SELECT value FROM settings WHERE key = ?",
+    ["background"],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      res.json({ url: row ? row.value : null });
+    }
+  );
 });
 
 /* ---------------- DELETE SONG ---------------- */
@@ -268,15 +290,15 @@ app.get("/api/background", requireLogin, (req, res) => {
 app.delete("/api/songs/:id", requireAdmin, (req, res) => {
 
   db.get("SELECT * FROM songs WHERE id = ?", [req.params.id], (err, song) => {
-
     if (!song) return res.status(404).json({ error: "Not found" });
+
+    addNotification("SONG_DELETED", `Deleted: ${song.title}`);
 
     fs.unlink(path.join(__dirname, "public", song.audioUrl), () => {});
 
     db.run("DELETE FROM songs WHERE id = ?", [req.params.id], () => {
       res.json({ success: true });
     });
-
   });
 
 });
@@ -287,13 +309,19 @@ app.get("/api/search", requireLogin, (req, res) => {
 
   const q = (req.query.q || "").toLowerCase();
 
-  db.all(
-    "SELECT * FROM songs WHERE LOWER(title) LIKE ? OR LOWER(artist) LIKE ?",
-    [`%${q}%`, `%${q}%`],
-    (err, rows) => {
-      res.json({ songs: rows });
+  db.all("SELECT * FROM songs", (err, songs) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    const results = songs.filter(s =>
+      (s.title + " " + s.artist).toLowerCase().includes(q)
+    );
+
+    if (q && results.length === 0) {
+      addNotification("SEARCH_MISS", `No results for: "${q}"`);
     }
-  );
+
+    res.json({ songs: results });
+  });
 
 });
 
@@ -304,13 +332,15 @@ app.get("/api/notifications", requireLogin, (req, res) => {
   db.all(
     "SELECT * FROM notifications ORDER BY id DESC LIMIT 50",
     (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+
       res.json({ notifications: rows || [] });
     }
   );
 
 });
 
-/* ---------------- START SERVER (ONLY CHANGE) ---------------- */
+/* ---------------- START ---------------- */
 
 const PORT = process.env.PORT || 3000;
 
