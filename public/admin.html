@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Panel</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0d0d0d;
+      color: white;
+    }
+
+    .app {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      width: 220px;
+      padding: 20px;
+      background: #000;
+    }
+
+    .sidebar h2 { color: #1db954; }
+
+    .sidebar p {
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .sidebar p:hover { color: #1db954; }
+
+    .main {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+    }
+
+    .hidden { display: none; }
+
+    .row {
+      background: #1a1a1a;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .deleteBtn {
+      color: red;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    button {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      background: #1db954;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <div class="sidebar">
+    <h2>Admin</h2>
+    <p onclick="show('library')"> Library</p>
+    <p onclick="show('upload')"> Upload</p>
+    <p onclick="show('settings')"> Settings</p>
+    <p onclick="show('notifications')"> Notifications</p>
+  </div>
+
+  <div class="main">
+
+    <div id="library">
+      <h2>All Songs</h2>
+      <div id="songList"></div>
+    </div>
+
+    <div id="upload" class="hidden">
+      <h2>Upload Songs</h2>
+
+      <input type="file" id="fileInput" multiple />
+      <br><br>
+      <button onclick="uploadFiles()">Upload</button>
+
+      <p id="status"></p>
+    </div>
+
+    <div id="settings" class="hidden">
+      <h2>Settings</h2>
+
+      <input type="file" id="bgFile" />
+      <br><br>
+      <button onclick="uploadBackground()">Upload Background</button>
+
+      <p id="bgStatus"></p>
+    </div>
+
+    <div id="notifications" class="hidden">
+      <h2>Notifications</h2>
+      <div id="notifList"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+function show(page) {
+  document.querySelectorAll(".main > div").forEach(d => d.classList.add("hidden"));
+  document.getElementById(page).classList.remove("hidden");
+
+  if (page === "notifications") loadNotifications();
+}
+
+/* LOAD SONGS */
+function loadSongs() {
+  fetch("/api/songs")
+    .then(r => r.json())
+    .then(d => {
+      const sorted = d.songs.sort((a, b) => a.title.localeCompare(b.title));
+
+      document.getElementById("songList").innerHTML =
+        sorted.map(s => `
+          <div class="row">
+            <div>${s.title} - ${s.artist}</div>
+            <div class="deleteBtn" onclick="deleteSong(${s.id})">−</div>
+          </div>
+        `).join("");
+    });
+}
+
+/* DELETE SONG */
+function deleteSong(id) {
+  if (!confirm("Delete this song?")) return;
+
+  fetch("/api/songs/" + id, { method: "DELETE" })
+    .then(() => loadSongs());
+}
+
+/* UPLOAD SONGS */
+function uploadFiles() {
+  const files = document.getElementById("fileInput").files;
+  const status = document.getElementById("status");
+
+  if (!files.length) {
+    status.innerText = "No files selected";
+    return;
+  }
+
+  const formData = new FormData();
+  for (let file of files) formData.append("songs", file);
+
+  status.innerText = "Uploading...";
+
+  fetch("/api/upload-files", {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (!data.success) throw new Error();
+
+    status.innerText = "Upload complete!";
+    document.getElementById("fileInput").value = "";
+    loadSongs();
+  })
+  .catch(() => {
+    status.innerText = "Upload failed";
+  });
+}
+
+/* 🔥 FIXED BACKGROUND UPLOAD */
+function uploadBackground() {
+  const file = document.getElementById("bgFile").files[0];
+  const status = document.getElementById("bgStatus");
+
+  if (!file) {
+    status.innerText = "No file selected";
+    return;
+  }
+
+  const formData = new FormData();
+
+  // ✅ send multiple possible keys (fixes backend mismatch issues)
+  formData.append("image", file);
+  formData.append("file", file);
+
+  status.innerText = "Uploading...";
+
+  fetch("/api/upload-bg", {
+    method: "POST",
+    body: formData
+  })
+  .then(async res => {
+    const text = await res.text();
+
+    if (!res.ok) {
+      throw new Error(text || "Server error");
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      // backend might return plain URL
+      return { url: text };
+    }
+  })
+  .then(data => {
+    if (!data.url) throw new Error("No URL returned from server");
+
+    localStorage.setItem("bgImage", data.url);
+    status.innerText = "Updated!";
+  })
+  .catch((err) => {
+    console.error(err);
+    status.innerText = "Upload failed (check server response)";
+  });
+}
+
+/* NOTIFICATIONS */
+function loadNotifications() {
+  fetch("/api/notifications")
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById("notifList").innerHTML =
+        d.notifications.map(n => `
+          <div class="row">
+            [${n.time}] ${n.type}: ${n.message}
+          </div>
+        `).join("");
+    });
+}
+
+loadSongs();
+
+</script>
+
+</body>
+</html>
+

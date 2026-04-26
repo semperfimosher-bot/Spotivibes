@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: rgb(28, 28, 28);
+      color: rgb(87, 86, 86);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .box {
+      width: 340px;
+      background: #000000;
+      padding: 20px;
+      border-radius: 10px;
+    }
+
+    input {
+      width: 94%;
+      padding: 10px;
+      margin: 6px 0;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #0d0780;
+      border: none;
+      cursor: pointer;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="box">
+  <h2>Spotivibes Login</h2>
+
+  <input id="firstName" placeholder="First Name">
+  <input id="lastName" placeholder="Last Name">
+  <input id="email" placeholder="Email">
+  <input id="password" type="password" placeholder="Password">
+
+  <button onclick="register()">Create Account</button>
+  <button onclick="login()">Login</button>
+</div>
+
+<script>
+
+/* ================= LOGIN FIXED ================= */
+function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  if (!email || !password) {
+    alert("Please fill in email and password");
+    return;
+  }
+
+  fetch("/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      window.location.href = "/";
+    } else {
+      alert(data.error || "Login failed");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Login request failed");
+  });
+}
+
+/* ================= REGISTER FIXED ================= */
+function register() {
+  const firstName = document.getElementById("firstName").value;
+  const lastName = document.getElementById("lastName").value;
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  if (!email || !password) {
+    alert("Please fill in required fields");
+    return;
+  }
+
+  fetch("/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      firstName,
+      lastName,
+      email,
+      password
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      window.location.href = "/";
+    } else {
+      alert(data.error || "Registration failed");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Register request failed");
+  });
+}
+
+</script>
+
+</body>
+</html>
+
