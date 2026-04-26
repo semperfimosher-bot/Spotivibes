@@ -29,7 +29,15 @@ app.use(express.static(path.join(__dirname, "public")));
 
 /* ---------------- DATABASE ---------------- */
 
-const db = new sqlite3.Database(path.join(__dirname, "spotivibes.db"));
+const dbPath = path.join(__dirname, "spotivibes.db");
+
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error("SQLite connection error:", err.message);
+  } else {
+    console.log("SQLite connected successfully");
+  }
+});
 
 db.serialize(() => {
 
@@ -74,18 +82,29 @@ db.serialize(() => {
 /* ---------------- HELPERS ---------------- */
 
 function addNotification(type, message) {
-  const time = new Date().toLocaleString();
+  try {
+    const time = new Date().toLocaleString();
 
-  db.run(
-    "INSERT INTO notifications (type, message, time) VALUES (?, ?, ?)",
-    [type, message, time]
-  );
+    db.run(
+      "INSERT INTO notifications (type, message, time) VALUES (?, ?, ?)",
+      [type, message, time]
+    );
+  } catch (err) {
+    console.error("Notification error:", err.message);
+  }
 }
 
 /* ---------------- UPLOAD SETUP ---------------- */
 
 const uploadDir = path.join(__dirname, "public/uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (err) {
+  console.error("Upload directory error:", err.message);
+}
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
