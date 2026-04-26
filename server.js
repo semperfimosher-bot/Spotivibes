@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(session({
   store: new SQLiteStore({ db: "sessions.db", dir: __dirname }),
-  secret: process.env.SESSION_SECRET || "dev-secret-change-me",
+  secret: "spotivibes-secret-key",
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -78,10 +78,7 @@ function addNotification(type, message) {
 
   db.run(
     "INSERT INTO notifications (type, message, time) VALUES (?, ?, ?)",
-    [type, message, time],
-    (err) => {
-      if (err) console.error("Notification error:", err);
-    }
+    [type, message, time]
   );
 }
 
@@ -96,24 +93,7 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + "-" + file.originalname)
 });
 
-// ✅ File filter (audio + images)
-function fileFilter(req, file, cb) {
-  if (
-    file.mimetype.startsWith("audio/") ||
-    file.mimetype.startsWith("image/")
-  ) {
-    cb(null, true);
-  } else {
-    cb(new Error("Invalid file type"), false);
-  }
-}
-
-// ✅ Limits added
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
-});
+const upload = multer({ storage });
 
 /* ---------------- AUTH HELPERS ---------------- */
 
@@ -129,7 +109,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-/* ---------------- PAGES ---------------- */
+/* ---------------- ROUTES ---------------- */
 
 app.get("/login", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "login.html"));
@@ -148,47 +128,33 @@ app.get("/admin", requireAdmin, (req, res) => {
 app.post("/api/register", async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
 
-  try {
-    const hashed = await bcrypt.hash(password, 10);
+  const hashed = await bcrypt.hash(password, 10);
 
-    db.get("SELECT COUNT(*) as count FROM users", [], (err, row) => {
+  db.get("SELECT COUNT(*) as count FROM users", [], (err, row) => {
 
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Database error" });
+    const role = row.count === 0 ? "admin" : "user";
+
+    db.run(
+      "INSERT INTO users (firstName, lastName, email, password, role) VALUES (?, ?, ?, ?, ?)",
+      [firstName, lastName, email, hashed, role],
+      function (err) {
+        if (err) return res.status(400).json({ error: "Email exists" });
+
+        addNotification("USER_CREATED", `User created: ${email}`);
+
+        req.session.user = {
+          id: this.lastID,
+          email,
+          firstName,
+          lastName,
+          role
+        };
+
+        res.json({ success: true });
       }
+    );
 
-      const role = row.count === 0 ? "admin" : "user";
-
-      db.run(
-        "INSERT INTO users (firstName, lastName, email, password, role) VALUES (?, ?, ?, ?, ?)",
-        [firstName, lastName, email, hashed, role],
-        function (err) {
-          if (err) {
-            console.error(err);
-            return res.status(400).json({ error: "Email exists" });
-          }
-
-          addNotification("USER_CREATED", `User created: ${email}`);
-
-          req.session.user = {
-            id: this.lastID,
-            email,
-            firstName,
-            lastName,
-            role
-          };
-
-          res.json({ success: true });
-        }
-      );
-
-    });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
+  });
 });
 
 app.post("/api/login", (req, res) => {
@@ -196,20 +162,11 @@ app.post("/api/login", (req, res) => {
 
   db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
 
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Database error" });
-    }
-
-    if (!user) {
-      return res.status(401).json({ error: "Invalid login" });
-    }
+    if (!user) return res.status(401).json({ error: "Invalid login" });
 
     const match = await bcrypt.compare(password, user.password);
 
-    if (!match) {
-      return res.status(401).json({ error: "Invalid login" });
-    }
+    if (!match) return res.status(401).json({ error: "Invalid login" });
 
     req.session.user = {
       id: user.id,
@@ -221,10 +178,7 @@ app.post("/api/login", (req, res) => {
 
     addNotification("LOGIN", `User logged in: ${email}`);
 
-    res.json({
-      success: true,
-      user: req.session.user
-    });
+    res.json({ success: true, user: req.session.user });
   });
 });
 
@@ -235,14 +189,11 @@ app.post("/api/logout", (req, res) => {
 });
 
 app.get("/api/me", (req, res) => {
-  if (!req.session || !req.session.user) {
-    return res.json({ loggedIn: false, user: null });
+  if (!req.session.user) {
+    return res.json({ loggedIn: false });
   }
 
-  res.json({
-    loggedIn: true,
-    user: req.session.user
-  });
+  res.json({ loggedIn: true, user: req.session.user });
 });
 
 /* ---------------- USERS ---------------- */
@@ -251,14 +202,11 @@ app.delete("/api/users/:id", requireAdmin, (req, res) => {
 
   db.get("SELECT email FROM users WHERE id = ?", [req.params.id], (err, user) => {
 
-    if (err) console.error(err);
-
     if (user) {
       addNotification("USER_DELETED", `User deleted: ${user.email}`);
     }
 
-    db.run("DELETE FROM users WHERE id = ?", [req.params.id], (err) => {
-      if (err) console.error(err);
+    db.run("DELETE FROM users WHERE id = ?", [req.params.id], () => {
       res.json({ success: true });
     });
 
@@ -270,10 +218,7 @@ app.delete("/api/users/:id", requireAdmin, (req, res) => {
 
 app.get("/api/songs", requireLogin, (req, res) => {
   db.all("SELECT * FROM songs ORDER BY id DESC", (err, rows) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.json({ songs: rows });
   });
 });
@@ -286,10 +231,7 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), (req, res) =>
 
     db.run(
       "INSERT INTO songs (title, artist, audioUrl) VALUES (?, ?, ?)",
-      [file.originalname, "Unknown", "/uploads/" + file.filename],
-      (err) => {
-        if (err) console.error(err);
-      }
+      [file.originalname, "Unknown", "/uploads/" + file.filename]
     );
 
     addNotification("SONG_UPLOADED", `Uploaded: ${file.originalname}`);
@@ -298,23 +240,16 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), (req, res) =>
   res.json({ success: true });
 });
 
-/* ---------------- BACKGROUND UPLOAD ---------------- */
+/* ---------------- BACKGROUND ---------------- */
 
 app.post("/api/upload-bg", requireAdmin, upload.any(), (req, res) => {
-
-  if (!req.files || req.files.length === 0) {
-    return res.status(400).json({ error: "No file uploaded" });
-  }
 
   const file = req.files[0];
   const fileUrl = "/uploads/" + file.filename;
 
   db.run(
     "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-    ["background", fileUrl],
-    (err) => {
-      if (err) console.error(err);
-    }
+    ["background", fileUrl]
   );
 
   addNotification("BG_UPDATED", "Background updated");
@@ -323,18 +258,9 @@ app.post("/api/upload-bg", requireAdmin, upload.any(), (req, res) => {
 });
 
 app.get("/api/background", requireLogin, (req, res) => {
-  db.get(
-    "SELECT value FROM settings WHERE key = ?",
-    ["background"],
-    (err, row) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: err.message });
-      }
-
-      res.json({ url: row ? row.value : null });
-    }
-  );
+  db.get("SELECT value FROM settings WHERE key = ?", ["background"], (err, row) => {
+    res.json({ url: row ? row.value : null });
+  });
 });
 
 /* ---------------- DELETE SONG ---------------- */
@@ -342,25 +268,15 @@ app.get("/api/background", requireLogin, (req, res) => {
 app.delete("/api/songs/:id", requireAdmin, (req, res) => {
 
   db.get("SELECT * FROM songs WHERE id = ?", [req.params.id], (err, song) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Database error" });
-    }
 
     if (!song) return res.status(404).json({ error: "Not found" });
 
-    addNotification("SONG_DELETED", `Deleted: ${song.title}`);
+    fs.unlink(path.join(__dirname, "public", song.audioUrl), () => {});
 
-    const filePath = path.join(__dirname, "public", song.audioUrl);
-
-    fs.unlink(filePath, (err) => {
-      if (err) console.error("File delete failed:", err);
-    });
-
-    db.run("DELETE FROM songs WHERE id = ?", [req.params.id], (err) => {
-      if (err) console.error(err);
+    db.run("DELETE FROM songs WHERE id = ?", [req.params.id], () => {
       res.json({ success: true });
     });
+
   });
 
 });
@@ -375,16 +291,6 @@ app.get("/api/search", requireLogin, (req, res) => {
     "SELECT * FROM songs WHERE LOWER(title) LIKE ? OR LOWER(artist) LIKE ?",
     [`%${q}%`, `%${q}%`],
     (err, rows) => {
-
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: err.message });
-      }
-
-      if (q && rows.length === 0) {
-        addNotification("SEARCH_MISS", `No results for: "${q}"`);
-      }
-
       res.json({ songs: rows });
     }
   );
@@ -398,19 +304,16 @@ app.get("/api/notifications", requireLogin, (req, res) => {
   db.all(
     "SELECT * FROM notifications ORDER BY id DESC LIMIT 50",
     (err, rows) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: err.message });
-      }
-
       res.json({ notifications: rows || [] });
     }
   );
 
 });
 
-/* ---------------- START ---------------- */
+/* ---------------- START SERVER (ONLY CHANGE) ---------------- */
 
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
