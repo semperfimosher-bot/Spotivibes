@@ -244,10 +244,20 @@ app.delete("/api/users/:id", requireAdmin, async (req, res) => {
 
 /* ---------------- SONGS ---------------- */
 
+/* FIXED: map audioUrl correctly */
 app.get("/api/songs", requireLogin, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM songs ORDER BY id DESC");
-    res.json({ songs: result.rows });
+
+    res.json({
+      songs: result.rows.map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        audioUrl: s.audiourl
+      }))
+    });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -323,6 +333,7 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
 
 /* ---------------- SEARCH ---------------- */
 
+/* FIXED: map audioUrl correctly */
 app.get("/api/search", requireLogin, async (req, res) => {
   const q = (req.query.q || "").toLowerCase();
 
@@ -338,7 +349,14 @@ app.get("/api/search", requireLogin, async (req, res) => {
     await addNotification("SEARCH_MISS", `No results for: "${q}"`);
   }
 
-  res.json({ songs: filtered });
+  res.json({
+    songs: filtered.map(s => ({
+      id: s.id,
+      title: s.title,
+      artist: s.artist,
+      audioUrl: s.audiourl
+    }))
+  });
 });
 
 /* ---------------- NOTIFICATIONS ---------------- */
