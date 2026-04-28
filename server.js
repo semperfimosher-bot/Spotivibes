@@ -21,7 +21,7 @@ const pool = new Pool({
 app.use(session({
   store: new PgSession({
     pool: pool,
-    tableName: "session"
+    tableName: "sessions"
   }),
   secret: process.env.SESSION_SECRET || "spotivibes-secret",
   resave: false,
@@ -41,6 +41,7 @@ app.use(express.static(path.join(__dirname, "public")));
 /* ---------------- INIT DATABASE TABLES ---------------- */
 
 async function initDB() {
+  
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -76,9 +77,19 @@ async function initDB() {
       value TEXT
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "sessions" (
+      sid varchar NOT NULL PRIMARY KEY,
+      sess json NOT NULL,
+      expire timestamp(6) NOT NULL
+    )
+  `);
 }
 
-initDB();
+initDB().then(() => {
+  console.log("CONNECTED DB:", process.env.DATABASE_URL);
+});
 
 /* ---------------- HELPERS ---------------- */
 
@@ -254,7 +265,7 @@ app.get("/api/songs", requireLogin, async (req, res) => {
         id: s.id,
         title: s.title,
         artist: s.artist,
-        audioUrl: s.audiourl
+        audioUrl: s.audioUrl
       }))
     });
 
@@ -324,7 +335,7 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
 
   await addNotification("SONG_DELETED", `Deleted: ${song.title}`);
 
-  fs.unlink(path.join(__dirname, "public", song.audiourl || song.audioUrl), () => {});
+  fs.unlink(path.join(__dirname, "public", song.audioUrl || song.audioUrl), () => {});
 
   await pool.query("DELETE FROM songs WHERE id = $1", [req.params.id]);
 
@@ -354,7 +365,7 @@ app.get("/api/search", requireLogin, async (req, res) => {
       id: s.id,
       title: s.title,
       artist: s.artist,
-      audioUrl: s.audiourl
+      audioUrl: s.audioUrl
     }))
   });
 });
