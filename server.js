@@ -264,7 +264,7 @@ app.get("/api/songs", requireLogin, async (req, res) => {
         id: s.id,
         title: s.title,
         artist: s.artist,
-        audioUrl: s.audioUrl
+        audioUrl: s.audiourl
       }))
     });
 
@@ -368,7 +368,7 @@ app.get("/api/search", requireLogin, async (req, res) => {
       id: s.id,
       title: s.title,
       artist: s.artist,
-      audioUrl: s.audioUrl
+      audioUrl: s.audiourl
     }))
   });
 });
