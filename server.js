@@ -41,7 +41,7 @@ app.use(express.static(path.join(__dirname, "public")));
 /* ---------------- INIT DATABASE TABLES ---------------- */
 
 async function initDB() {
-  
+ 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -255,7 +255,6 @@ app.delete("/api/users/:id", requireAdmin, async (req, res) => {
 
 /* ---------------- SONGS ---------------- */
 
-/* FIXED: map audioUrl correctly */
 app.get("/api/songs", requireLogin, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM songs ORDER BY id DESC");
@@ -335,7 +334,12 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
 
   await addNotification("SONG_DELETED", `Deleted: ${song.title}`);
 
-  fs.unlink(path.join(__dirname, "public", song.audioUrl || song.audioUrl), () => {});
+  if (song.audioUrl) {
+    fs.unlink(
+      path.join(__dirname, "public", song.audioUrl),
+      () => {}
+    );
+  }
 
   await pool.query("DELETE FROM songs WHERE id = $1", [req.params.id]);
 
@@ -344,7 +348,6 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
 
 /* ---------------- SEARCH ---------------- */
 
-/* FIXED: map audioUrl correctly */
 app.get("/api/search", requireLogin, async (req, res) => {
   const q = (req.query.q || "").toLowerCase();
 
