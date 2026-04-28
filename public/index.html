@@ -188,7 +188,7 @@ let resumeMode = false;
 
 /* BACKGROUND */
 function loadBackground() {
-  fetch("/api/background")
+  fetch("/api/background", { credentials: "include" })
     .then(r => r.json())
     .then(data => {
       const url = data.url || localStorage.getItem("bgImage");
@@ -210,7 +210,7 @@ function loadBackground() {
 
 /* USER */
 function loadUser() {
-  fetch("/api/me")
+  fetch("/api/me", { credentials: "include" })
     .then(r => r.json())
     .then(data => {
       const box = document.getElementById("userBox");
@@ -222,13 +222,13 @@ function loadUser() {
 
 /* LOGOUT */
 function logout() {
-  fetch("/api/logout", { method: "POST" })
+  fetch("/api/logout", { method: "POST", credentials: "include" })
     .finally(() => window.location.href = "/login");
 }
 
 /* SONGS */
 function loadSongs() {
-  fetch("/api/songs")
+  fetch("/api/songs", { credentials: "include" })
     .then(r => r.json())
     .then(data => {
       state.songs = data.songs || [];
@@ -244,22 +244,22 @@ function getSongById(id) {
   return state.songs.find(s => s.id === id);
 }
 
-/* FIXED PLAY FUNCTION */
+/* FIXED ONLY HERE */
 function playSong(id) {
   const s = getSongById(id);
+
   if (!s || !s.audioUrl) {
     console.error("Missing song or audioUrl:", s);
     return;
   }
+
+  audio.src = s.audioUrl;
 
   state.currentId = id;
   resumeMode = false;
 
   localStorage.setItem(LAST_SONG_KEY, id);
   localStorage.setItem(TIME_KEY_PREFIX + id, 0);
-
-  audio.src = s.audioUrl;
-  audio.load();
 
   nowPlaying.innerText = `${s.title} - ${s.artist}`;
 
