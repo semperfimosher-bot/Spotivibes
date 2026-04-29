@@ -336,8 +336,8 @@ app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res)
       return res.status(400).json({ error: "Error: No file uploaded" });
     }
   
-    req.file.filename
-    
+    const fileUrl = "/uploads/" + req.file.filename;
+
     await pool.query(
       "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
       ["background", fileUrl]
