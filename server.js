@@ -330,16 +330,14 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
 
 /* ---------------- BACKGROUND UPLOAD ---------------- */
 
-app.post("/api/upload-bg",  upload.single("file"), async (req, res) => {
+app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res) => {
   try {
-    const file = req.file;
-   
-    if (!file || !file.filename) {
-      return res.status(400).json({ error: "Invalid file upload" });
+    if (!req.file) {
+      return res.status(400).json({ error: "Error: No file uploaded" });
     }
-   
-    const fileUrl = "/uploads/" + file.filename;
-
+  
+    req.file.filename
+    
     await pool.query(
       "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
       ["background", fileUrl]
@@ -347,12 +345,16 @@ app.post("/api/upload-bg",  upload.single("file"), async (req, res) => {
 
     await addNotification("BG_UPDATED", "Background updated");
 
-    res.json({ url: fileUrl });
+    res.json({ backgroundUrl: fileUrl });
+
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Upload failed" });
-  }
+    return res.status(500).json({
+       error: "Upload failed",
+       detail: err.message
+      });
+  } 
 });
 
 /* ---------------- GET BACKGROUND ---------------- */
