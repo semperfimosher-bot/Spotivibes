@@ -330,7 +330,7 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
 
 /* ---------------- BACKGROUND UPLOAD ---------------- */
 
-app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res) => {
+app.post("/api/upload-bg",  upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
    
