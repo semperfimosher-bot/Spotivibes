@@ -123,22 +123,10 @@ const upload = multer({
   limits: {
     fileSize: 15 * 1024 * 1024
   },
+  
   fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      "audio/mpeg",
-      "audio/ogg",
-      "audio/wav",
-      "audio/mp4",
-      "image/jpeg",
-      "image/png",
-    ];
-
-    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
-    } else {
-      cb(new Error("Invalid file type"), false);
     }
-  }
 });
 
 /* ---------------- AUTH HELPERS ---------------- */
