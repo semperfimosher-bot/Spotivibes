@@ -121,7 +121,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 15 * 1024 * 1024
+    fileSize: 20 * 1024 * 1024
   },
   
   fileFilter: (req, file, cb) => {
@@ -332,6 +332,8 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
 
 app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res) => {
   try {
+    console.log("File:", req.file);
+
     if (!req.file) {
       return res.status(400).json({ error: "Error: No file uploaded" });
     }

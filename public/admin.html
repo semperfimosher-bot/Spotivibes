@@ -191,36 +191,29 @@ function uploadBackground() {
   }
 
   const formData = new FormData();
-
-  // ✅ send multiple possible keys (fixes backend mismatch issues)
-  formData.append("image", file);
   formData.append("file", file);
 
   status.innerText = "Uploading...";
 
   fetch("/api/upload-bg", {
     method: "POST",
-    body: formData
-  })
+    body: formData,
+    credentials: "include"
+ })
   .then(async res => {
-    const text = await res.text();
+    const data = await res.json();
 
     if (!res.ok) {
-      throw new Error(text || "Server error");
+      throw new Error(text || "Upload failed");
     }
 
-    try {
-      return JSON.parse(text);
-    } catch {
-      // backend might return plain URL
-      return { url: text };
-    }
+    return data;
   })
   .then(data => {
-    if (!data.url) throw new Error("No URL returned from server");
+   const url = data.backgroundUrl;
 
-    localStorage.setItem("bgImage", data.url);
-    status.innerText = "Updated!";
+    localStorage.setItem("bgImage", url);
+    status.innerText = "Upload successful!";
   })
   .catch((err) => {
     console.error(err);
