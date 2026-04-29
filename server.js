@@ -33,7 +33,7 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production"
+    secure: true
   }
 }));
 
@@ -177,8 +177,8 @@ app.post("/api/register", async (req, res) => {
   const { firstName, lastName, email, password } = req.body;
 
   try {
-    if (!email || !password) {
-      return res.status(400).json({ error: "Invalid input" });
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     const hashed = await bcrypt.hash(password, 10);
@@ -206,8 +206,8 @@ app.post("/api/register", async (req, res) => {
     res.json({ success: true });
 
   } catch (err) {
-    console.error(err);
-    return res.status(400).json({ error: "Email exists or invalid data" });
+    console.error("REGISTER ERROR:", err);
+    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -345,11 +345,11 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
 app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res) => {
   try {
     const file = req.file;
-    
+   
     if (!file || !file.filename) {
       return res.status(400).json({ error: "Invalid file upload" });
     }
-    
+   
     const fileUrl = "/uploads/" + file.filename;
 
     await pool.query(
@@ -469,7 +469,7 @@ app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     return res.status(400).json({ error: err.message });
   }
-  
+ 
   if (err && err.message === "Invalid file type") {
     return res.status(400).json({ error: err.message });
   }
@@ -490,3 +490,4 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
