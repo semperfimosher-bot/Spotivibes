@@ -6,10 +6,12 @@ const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
 const PgSession = require("connect-pg-simple")(session);
-require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
 
 const app = express();
 
+app.set("trust proxy", 1);
 /* ---------------- DATABASE (POSTGRES) ---------------- */
 
 const pool = new Pool({
@@ -23,7 +25,9 @@ app.use(session({
     pool: pool,
     tableName: "sessions"
   }),
-  secret: process.env.SESSION_SECRET || "spotivibes-secret",
+  secret: process.env.SESSION_SECRET || (() => {
+    throw new Error("SESSION_SECRET is required");
+  })(),
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -81,10 +85,11 @@ async function initDB() {
 
 initDB()
   .then(() => {
-    console.log("CONNECTED DB:", process.env.DATABASE_URL);
+    console.log("CONNECTED DB SUCCESSFULLY 🎉 ✅");
   })
   .catch(err => {
     console.error("DB INIT ERROR:", err);
+    process.exit(1);
   });
 
 /* ---------------- HELPERS ---------------- */
@@ -116,7 +121,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 25 * 1024 * 1024 // ✅ FIX: prevent huge uploads
+    fileSize: 15 * 1024 * 1024
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -217,7 +222,7 @@ app.post("/api/login", async (req, res) => {
 
     const user = result.rows[0];
 
-    if (!user || !user.password) {
+    if (!user || typeof user.password !== "string") {
       return res.status(401).json({ error: "Invalid login" });
     }
 
@@ -276,11 +281,11 @@ app.delete("/api/users/:id", requireAdmin, async (req, res) => {
 
     const user = userResult.rows[0];
 
+    await pool.query("DELETE FROM users WHERE id = $1", [req.params.id]);
+
     if (user) {
       await addNotification("USER_DELETED", `User deleted: ${user.email}`);
     }
-
-    await pool.query("DELETE FROM users WHERE id = $1", [req.params.id]);
 
     res.json({ success: true });
 
@@ -314,6 +319,10 @@ app.get("/api/songs", requireLogin, async (req, res) => {
 
 app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, res) => {
   try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "No files uploaded" });
+    }
+
     for (const file of req.files) {
       await pool.query(
         "INSERT INTO songs (title, artist, audio_url) VALUES ($1, $2, $3)",
@@ -333,14 +342,14 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
 
 /* ---------------- BACKGROUND UPLOAD ---------------- */
 
-app.post("/api/upload-bg", requireAdmin, upload.any(), async (req, res) => {
+app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res) => {
   try {
-    const file = req.files?.[0];
-
-    if (!file) {
-      return res.status(400).json({ error: "No file uploaded" });
+    const file = req.file;
+    
+    if (!file || !file.filename) {
+      return res.status(400).json({ error: "Invalid file upload" });
     }
-
+    
     const fileUrl = "/uploads/" + file.filename;
 
     await pool.query(
@@ -389,13 +398,13 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
 
     await addNotification("SONG_DELETED", `Deleted: ${song.title}`);
 
-    if (song.audio_url) {
-      fs.unlink(
-        path.join(__dirname, "public", song.audio_url.replace(/^\//, "")),
-        err => {
-          if (err) console.error("Delete error:", err);
-        }
-      );
+    try {
+      if (song.audio_url) {
+        const filePath = path.join(__dirname, "public", song.audio_url.replace(/^\//, ""));
+        fs.unlinkSync(filePath);
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
     }
 
     await pool.query("DELETE FROM songs WHERE id = $1", [req.params.id]);
@@ -455,6 +464,26 @@ app.get("/api/notifications", requireLogin, async (req, res) => {
 });
 
 /* ---------------- START ---------------- */
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: err.message });
+  }
+  
+  if (err && err.message === "Invalid file type") {
+    return res.status(400).json({ error: err.message });
+  }
+
+  next(err);
+});
+
+app.use((err, req, res, next) => {
+  console.error("GLOBAL ERROR:", err);
+
+ if (!res.headersSent) {
+    res.status(500).json({ error: "Internal server error" });
+ }
+});
 
 const PORT = process.env.PORT || 3000;
 
