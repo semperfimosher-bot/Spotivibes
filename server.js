@@ -6,6 +6,10 @@ const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
 const PgSession = require("connect-pg-simple")(session);
+const crypto = require("crypto");
+const rateLimit = require("express-rate-limit");
+const { z } = require("zod");
+
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 
@@ -15,7 +19,10 @@ app.set("trust proxy", 1);
 /* ---------------- DATABASE (POSTGRES) ---------------- */
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 /* ---------------- SESSION STORE (POSTGRES) ---------------- */
@@ -33,15 +40,38 @@ app.use(session({
   cookie: {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production"
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 1000 * 60 * 60 * 24 * 7
   }
 }));
 
 /* ---------------- MIDDLEWARE ---------------- */
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
+
+app.use("/api/", rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // limit each IP to 100 requests per windowMs
+}));
+
+app.use("/api/login", rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // limit each IP to 5 login requests per windowMs
+}));
+
+const registerSchema = z.object({
+  firstName: z.string().min(1).max(50),
+  lastName: z.string().min(1).max(50),
+  email: z.string().email().max(255),
+  password: z.string().min(6).max(100),
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
 
 /* ---------------- INIT DATABASE TABLES ---------------- */
 
@@ -86,6 +116,12 @@ async function initDB() {
 initDB()
   .then(() => {
     console.log("CONNECTED DB SUCCESSFULLY 🎉 ✅");
+  
+    const port = process.env.PORT || 3000;
+
+    app.listen(port, () => {
+      console.log(`Server running on port ${PORT} 🚀`);
+    });
   })
   .catch(err => {
     console.error("DB INIT ERROR:", err);
@@ -114,19 +150,34 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + "-" + file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_"))
+  filename: (req, file, cb) => {
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+    cb(null, crypto.randomUUID() + "-" + safeName);
+  }
 });
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024
+    fileSize: 10 * 1024 * 1024
   },
   
   fileFilter: (req, file, cb) => {
-      cb(null, true);
+    const allowedTypes = [
+      "audio/mpeg",
+      "audio/mp4",
+      "audio/ogg",
+      "audio/wav",
+      "image/jpeg",
+      "image/png",
+    ];
+
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error("Invalid file type"));
     }
+
+    cb(null, true);
+  }
 });
 
 /* ---------------- AUTH HELPERS ---------------- */
@@ -162,17 +213,22 @@ app.get("/admin", requireAdmin, (req, res) => {
 /* ---------------- AUTH ---------------- */
 
 app.post("/api/register", async (req, res) => {
-  const { firstName, lastName, email, password } = req.body;
-
   try {
-    if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ error: "Missing required fields" });
+    const validationResult = registerSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      return res.status(400).json({ 
+        error: "Invalid input",
+        details: validationResult.error.errors
+      });
     }
+
+    const { firstName, lastName, email, password } = validationResult.data;
 
     const hashed = await bcrypt.hash(password, 10);
 
     const countResult = await pool.query("SELECT COUNT(*) FROM users");
-    const userCount = parseInt(countResult.rows[0].count, 10);
+    const userCount = Number(countResult.rows[0].count);
 
     const role = userCount === 0 ? "admin" : "user";
 
@@ -199,6 +255,8 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
+
+
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -220,7 +278,12 @@ app.post("/api/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid login" });
     }
 
-    req.session.user = {
+    req.session.regenerate(err => {
+      if (err) {
+        return res.status(500).json({ error: "Session error" });
+      }
+
+      req.session.user = {
       id: user.id,
       email: user.email,
       firstName: user.first_name,
@@ -228,11 +291,10 @@ app.post("/api/login", async (req, res) => {
       role: user.role
     };
 
-    await addNotification("LOGIN", `User logged in: ${email}`);
-
     res.json({
       success: true,
       user: req.session.user
+    });
     });
 
   } catch (err) {
@@ -393,8 +455,14 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
     try {
       if (song.audio_url) {
         const filePath = path.join(__dirname, "public", song.audio_url.replace(/^\//, ""));
-        fs.unlinkSync(filePath);
+        fs.unlink(filePath, err => {
+          if (err) {
+            console.error("Delete error:", err);
+          }
+        });      
       }
+      
+      
     } catch (err) {
       console.error("Delete error:", err);
     }
@@ -407,7 +475,8 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
-});
+}
+);
 
 /* ---------------- SEARCH ---------------- */
 
@@ -472,8 +541,16 @@ app.use((err, req, res, next) => {
 app.use((err, req, res, next) => {
   console.error("GLOBAL ERROR:", err);
 
+ if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: err.message });
+ }
+
+ if (err && err.message === "Invalid file type") {
+    return res.status(400).json({ error: err.message });
+ }
+
  if (!res.headersSent) {
-    res.status(500).json({ error: "Internal server error" });
+   return res.status(500).json({ error: "Internal server error" });
  }
 });
 
