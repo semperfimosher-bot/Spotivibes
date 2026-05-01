@@ -16,7 +16,8 @@ const {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
-  DeleteObjectCommand
+  DeleteObjectCommand,
+  ListObjectVersionsCommand
 } = require("@aws-sdk/client-s3");
 
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
@@ -504,16 +505,42 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
 
     const song = songResult.rows[0];
     if (!song) return res.status(404).json({ error: "Not found" });
-    
-    if (song.audio_url) {
-      await b2.send(
-        new DeleteObjectCommand({
-          Bucket: process.env.B2_BUCKET_NAME,
-          Key: song.audio_url,
-        })
-      );
+
+    let fileKey = song.audio_url;
+
+    // normalize old full URLs if needed
+    if (fileKey && fileKey.includes("http")) {
+      const url = new URL(fileKey);
+      fileKey = url.pathname.split("/file/")[1];
     }
 
+    // 🔥 LIST ALL VERSIONS
+    const versions = await b2.send(
+      new ListObjectVersionsCommand({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Prefix: fileKey
+      })
+    );
+
+    const allVersions = [
+      ...(versions.Versions || []),
+      ...(versions.DeleteMarkers || [])
+    ];
+
+    // 🔥 DELETE EVERY VERSION FOUND
+    for (const v of allVersions) {
+      if (v.Key === fileKey) {
+        await b2.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.B2_BUCKET_NAME,
+            Key: fileKey,
+            VersionId: v.VersionId
+          })
+        );
+      }
+    }
+
+    // 🧹 DELETE FROM DATABASE
     await pool.query("DELETE FROM songs WHERE id = $1", [req.params.id]);
 
     await addNotification("SONG_DELETED", `Deleted: ${song.title}`);
@@ -525,6 +552,7 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 /* ---------------- SEARCH ---------------- */
 
