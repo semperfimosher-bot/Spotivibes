@@ -144,21 +144,6 @@ async function initDB() {
   `);
 }
 
-initDB()
-  .then(() => {
-    console.log("CONNECTED DB SUCCESSFULLY 🎉 ✅");
-  
-    const port = process.env.PORT || 3000;
-
-    app.listen(port, () => {
-      console.log(`Server running on port ${PORT} 🚀`);
-    });
-  })
-  .catch(err => {
-    console.error("DB INIT ERROR:", err);
-    process.exit(1);
-  });
-
 /* ---------------- HELPERS ---------------- */
 
 async function addNotification(type, message) {
@@ -181,7 +166,7 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
   storage:multer.memoryStorage(),
-  limits: {fileSize: 500 * 1024 * 1024},
+  limits: {fileSize: 100 * 1024 * 1024},
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "audio/mpeg",
@@ -630,9 +615,22 @@ app.use((err, req, res, next) => {
  }
 });
 
+async function startServer() {
+  try{
+    await initDB();
+    console.log("✅ Database connected successfully");
+
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT} 🚀`);
+    });
+
+  } catch (err) {
+    console.error("DB INIT ERROR:", err);
+    process.exit(1);
+  }
+}
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} 🚀`);
-});
+startServer();
+
 
