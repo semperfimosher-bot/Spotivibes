@@ -12,6 +12,36 @@ const { z } = require("zod");
 
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
+const {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand
+} = require("@aws-sdk/client-s3");
+
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+
+const b2 = new S3Client({
+  region: "us-east-005",
+  endpoint: process.env.B2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.B2_KEY_ID,
+    secretAccessKey: process.env.B2_APP_KEY
+  },
+});
+
+async function getFileUrl(fileKey) {
+  if (!fileKey) return null;
+
+  const command = new GetObjectCommand({
+    Bucket: process.env.B2_BUCKET_NAME,
+    Key: fileKey,
+  });
+
+  return await getSignedUrl(b2, command, {
+    expiresIn: 60 * 60, // 1 hour
+  });
+}
 
 const app = express();
 
@@ -148,20 +178,9 @@ async function addNotification(type, message) {
 const uploadDir = path.join(__dirname, "public/uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
-    cb(null, crypto.randomUUID() + "-" + safeName);
-  }
-});
-
 const upload = multer({
-  storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024
-  },
-  
+  storage:multer.memoryStorage(),
+  limits: {fileSize: 500 * 1024 * 1024},
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "audio/mpeg",
@@ -179,6 +198,7 @@ const upload = multer({
     cb(null, true);
   }
 });
+
 
 /* ---------------- AUTH HELPERS ---------------- */
 
@@ -345,22 +365,25 @@ app.delete("/api/users/:id", requireAdmin, async (req, res) => {
   }
 });
 
-/* ---------------- SONGS ---------------- */
+/* ---------------- GET SONGS ---------------- */
 
 app.get("/api/songs", requireLogin, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM songs ORDER BY id DESC");
 
-    res.json({
-      songs: result.rows.map(s => ({
+    const songsWithUrls = await Promise.all(
+      result.rows.map(async (s) => ({
         id: s.id,
         title: s.title,
         artist: s.artist,
-        audioUrl: s.audio_url
+        audioUrl: await getFileUrl(s.audio_url)
       }))
-    });
+    );
+
+    res.json({ songs: songsWithUrls });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -374,9 +397,20 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
     }
 
     for (const file of req.files) {
+      const fileKey = `songs/${Date.now()}-${file.originalname}`;
+
+      await b2.send(
+        new PutObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME,
+          Key: fileKey,
+          Body: file.buffer,
+          ContentType: file.mimetype,
+        })
+      );
+
       await pool.query(
         "INSERT INTO songs (title, artist, audio_url) VALUES ($1, $2, $3)",
-        [file.originalname, "Unknown", "/uploads/" + file.filename]
+        [file.originalname, "Unknown", fileKey]
       );
 
       await addNotification("SONG_UPLOADED", `Uploaded: ${file.originalname}`);
@@ -399,27 +433,38 @@ app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res)
     if (!req.file) {
       return res.status(400).json({ error: "Error: No file uploaded" });
     }
-  
-    const fileUrl = "/uploads/" + req.file.filename;
 
+    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const fileKey = `backgrounds/${Date.now()}-${safeName}`;
+
+    await b2.send(
+      new PutObjectCommand({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Key: fileKey,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      })
+    );
+
+    // ONLY store fileKey in database (NOT URL)
     await pool.query(
       "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-      ["background", fileUrl]
+      ["background", fileKey]
     );
 
     await addNotification("BG_UPDATED", "Background updated");
 
-    res.json({ backgroundUrl: fileUrl });
-
+    // IMPORTANT: return success only
+    res.json({ success: true });
 
   } catch (err) {
     console.error(err);
     return res.status(500).json({
-       error: "Upload failed",
-       detail: err.message
-      });
-  } 
-});
+      error: "Upload failed",
+      detail: err.message
+    });
+  }
+})
 
 /* ---------------- GET BACKGROUND ---------------- */
 
@@ -430,9 +475,18 @@ app.get("/api/background", requireLogin, async (req, res) => {
       ["background"]
     );
 
-    res.json({ url: result.rows[0]?.value || null });
+    const fileKey = result.rows[0]?.value;
+
+    if (!fileKey) {
+      return res.json({ url: null });
+    }
+
+    const url = await getFileUrl(fileKey);
+
+    res.json({ url });
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -447,36 +501,28 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
     );
 
     const song = songResult.rows[0];
-
     if (!song) return res.status(404).json({ error: "Not found" });
-
-    await addNotification("SONG_DELETED", `Deleted: ${song.title}`);
-
-    try {
-      if (song.audio_url) {
-        const filePath = path.join(__dirname, "public", song.audio_url.replace(/^\//, ""));
-        fs.unlink(filePath, err => {
-          if (err) {
-            console.error("Delete error:", err);
-          }
-        });      
-      }
-      
-      
-    } catch (err) {
-      console.error("Delete error:", err);
+    
+    if (song.audio_url) {
+      await b2.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME,
+          Key: song.audio_url,
+        })
+      );
     }
 
     await pool.query("DELETE FROM songs WHERE id = $1", [req.params.id]);
 
+    await addNotification("SONG_DELETED", `Deleted: ${song.title}`);
+
     res.json({ success: true });
 
   } catch (err) {
-    console.error(err);
+    console.error("DELETE SONG ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
-}
-);
+});
 
 /* ---------------- SEARCH ---------------- */
 
@@ -557,6 +603,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} 🚀`);
 });
 
