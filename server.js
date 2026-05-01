@@ -458,13 +458,15 @@ app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res)
     res.json({ success: true });
 
   } catch (err) {
-    console.error(err);
+    console.error("Upload failed:", err);
+
     return res.status(500).json({
       error: "Upload failed",
-      detail: err.message
+      detail: err.message,
+      name: err.name
     });
   }
-})
+});
 
 /* ---------------- GET BACKGROUND ---------------- */
 
