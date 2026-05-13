@@ -40,20 +40,19 @@ async function getFileUrl(fileKey) {
   });
 
   return await getSignedUrl(b2, command, {
-    expiresIn: 60 * 60, // 1 hour
+    expiresIn: 60 * 60,
   });
 }
 
 const app = express();
 
 app.set("trust proxy", 1);
+
 /* ---------------- DATABASE (POSTGRES) ---------------- */
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: { rejectUnauthorized: false }
 });
 
 /* ---------------- SESSION STORE (POSTGRES) ---------------- */
@@ -83,13 +82,13 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/api/", rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 200,
 }));
 
 app.use("/api/login", rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // limit each IP to 5 login requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 20,
 }));
 
 const registerSchema = z.object({
@@ -142,6 +141,25 @@ async function initDB() {
       value TEXT
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS playlists (
+      id SERIAL PRIMARY KEY,
+      user_id INT REFERENCES users(id),
+      name TEXT,
+      query TEXT,
+      is_generated BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS playlist_songs (
+      playlist_id INT REFERENCES playlists(id) ON DELETE CASCADE,
+      song_id INT REFERENCES songs(id),
+      PRIMARY KEY (playlist_id, song_id)
+    )
+  `);
 }
 
 /* ---------------- HELPERS ---------------- */
@@ -159,14 +177,40 @@ async function addNotification(type, message) {
   }
 }
 
+/* =========================
+   ✅ ADDED: PLAYLIST BUILDER
+========================= */
+async function buildGeneratedPlaylist(userId, query, songs) {
+  const name = `Created for ${query}`;
+
+  const playlistResult = await pool.query(
+    `INSERT INTO playlists (user_id, name, query, is_generated)
+     VALUES ($1, $2, $3, true)
+     RETURNING id`,
+    [userId, name, query]
+  );
+
+  const playlistId = playlistResult.rows[0].id;
+
+  for (const song of songs) {
+    await pool.query(
+      `INSERT INTO playlist_songs (playlist_id, song_id)
+       VALUES ($1, $2)`,
+      [playlistId, song.id]
+    );
+  }
+
+  return playlistId;
+}
+
 /* ---------------- UPLOAD SETUP ---------------- */
 
 const uploadDir = path.join(__dirname, "public/uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
-  storage:multer.memoryStorage(),
-  limits: {fileSize: 100 * 1024 * 1024},
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "audio/mpeg",
@@ -184,7 +228,6 @@ const upload = multer({
     cb(null, true);
   }
 });
-
 
 /* ---------------- AUTH HELPERS ---------------- */
 
@@ -223,7 +266,7 @@ app.post("/api/register", async (req, res) => {
     const validationResult = registerSchema.safeParse(req.body);
 
     if (!validationResult.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: "Invalid input",
         details: validationResult.error.errors
       });
@@ -261,8 +304,6 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-
-
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -290,17 +331,17 @@ app.post("/api/login", async (req, res) => {
       }
 
       req.session.user = {
-      id: user.id,
-      email: user.email,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      role: user.role
-    };
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role
+      };
 
-    res.json({
-      success: true,
-      user: req.session.user
-    });
+      res.json({
+        success: true,
+        user: req.session.user
+      });
     });
 
   } catch (err) {
@@ -369,7 +410,6 @@ app.get("/api/songs", requireLogin, async (req, res) => {
     res.json({ songs: songsWithUrls });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -405,7 +445,6 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
     res.json({ success: true });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: "Upload failed" });
   }
 });
@@ -414,8 +453,6 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
 
 app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res) => {
   try {
-    console.log("File:", req.file);
-
     if (!req.file) {
       return res.status(400).json({ error: "Error: No file uploaded" });
     }
@@ -432,7 +469,6 @@ app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res)
       })
     );
 
-    // ONLY store fileKey in database (NOT URL)
     await pool.query(
       "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
       ["background", fileKey]
@@ -440,17 +476,10 @@ app.post("/api/upload-bg", requireAdmin, upload.single("file"), async (req, res)
 
     await addNotification("BG_UPDATED", "Background updated");
 
-    // IMPORTANT: return success only
     res.json({ success: true });
 
   } catch (err) {
-    console.error("Upload failed:", err);
-
-    return res.status(500).json({
-      error: "Upload failed",
-      detail: err.message,
-      name: err.name
-    });
+    res.status(500).json({ error: "Upload failed" });
   }
 });
 
@@ -465,16 +494,13 @@ app.get("/api/background", requireLogin, async (req, res) => {
 
     const fileKey = result.rows[0]?.value;
 
-    if (!fileKey) {
-      return res.json({ url: null });
-    }
+    if (!fileKey) return res.json({ url: null });
 
     const url = await getFileUrl(fileKey);
 
     res.json({ url });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -493,13 +519,11 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
 
     let fileKey = song.audio_url;
 
-    // normalize old full URLs if needed
     if (fileKey && fileKey.includes("http")) {
       const url = new URL(fileKey);
       fileKey = url.pathname.split("/file/")[1];
     }
 
-    // 🔥 LIST ALL VERSIONS
     const versions = await b2.send(
       new ListObjectVersionsCommand({
         Bucket: process.env.B2_BUCKET_NAME,
@@ -512,7 +536,6 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
       ...(versions.DeleteMarkers || [])
     ];
 
-    // 🔥 DELETE EVERY VERSION FOUND
     for (const v of allVersions) {
       if (v.Key === fileKey) {
         await b2.send(
@@ -525,7 +548,6 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
       }
     }
 
-    // 🧹 DELETE FROM DATABASE
     await pool.query("DELETE FROM songs WHERE id = $1", [req.params.id]);
 
     await addNotification("SONG_DELETED", `Deleted: ${song.title}`);
@@ -533,11 +555,131 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
     res.json({ success: true });
 
   } catch (err) {
-    console.error("DELETE SONG ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
+/* =========================
+   ✅ ADDED: SMART SEARCH
+========================= */
+app.get("/api/smart-search", requireLogin, async (req, res) => {
+  const q = (req.query.q || "").toLowerCase();
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM songs WHERE LOWER(title) LIKE $1 OR LOWER(artist) LIKE $1",
+      [`%${q}%`]
+    );
+
+    const songs = result.rows;
+
+    const songsWithUrls = await Promise.all(
+      songs.map(async (s) => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        audioUrl: await getFileUrl(s.audio_url)
+      }))
+    );
+
+    res.json({
+      playlist: {
+        name: `Created for ${req.session.user.firstName} - ${q}`,
+        query: q,
+        songs: songsWithUrls,
+        generated: true
+      }
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Smart search failed" });
+  }
+});
+
+/* =========================
+   ✅ ADDED: SAVE PLAYLIST
+========================= */
+app.post("/api/playlists/save", requireLogin, async (req, res) => {
+  const { name, query, songs } = req.body;
+  const userId = req.session.user.id;
+
+  try {
+    const playlistResult = await pool.query(
+      `INSERT INTO playlists (user_id, name, query, is_generated)
+       VALUES ($1, $2, $3, false)
+       RETURNING id`,
+      [userId, name, query]
+    );
+
+    const playlistId = playlistResult.rows[0].id;
+
+    for (const song of songs) {
+      await pool.query(
+        `INSERT INTO playlist_songs (playlist_id, song_id)
+         VALUES ($1, $2)`,
+        [playlistId, song.id]
+      );
+    }
+
+    res.json({ success: true, playlistId });
+
+  } catch (err) {
+    res.status(500).json({ error: "Failed to save playlist" });
+  }
+});
+
+/* =========================
+   ✅ ADDED: GET USER PLAYLISTS
+========================= */
+app.get("/api/playlists", requireLogin, async (req, res) => {
+  try {
+    const playlists = await pool.query(
+      `SELECT * FROM playlists WHERE user_id = $1 ORDER BY created_at DESC`,
+      [req.session.user.id]
+    );
+
+    res.json({ playlists: playlists.rows });
+
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch playlists" });
+  }
+});
+
+/* =========================
+   ✅ ADDED: GET PLAYLIST DETAILS
+========================= */
+app.get("/api/playlists/:id", requireLogin, async (req, res) => {
+  try {
+    const playlist = await pool.query(
+      "SELECT * FROM playlists WHERE id = $1",
+      [req.params.id]
+    );
+
+    const songs = await pool.query(
+      `SELECT songs.* FROM songs
+       JOIN playlist_songs ON songs.id = playlist_songs.song_id
+       WHERE playlist_songs.playlist_id = $1`,
+      [req.params.id]
+    );
+
+    const songsWithUrls = await Promise.all(
+      songs.rows.map(async (s) => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        audioUrl: await getFileUrl(s.audio_url)
+      }))
+    );
+
+    res.json({
+      playlist: playlist.rows[0],
+      songs: songsWithUrls
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: "Failed to load playlist" });
+  }
+});
 
 /* ---------------- SEARCH ---------------- */
 
@@ -552,18 +694,16 @@ app.get("/api/search", requireLogin, async (req, res) => {
 
     const songs = result.rows;
 
-    if (q && songs.length === 0) {
-      await addNotification("SEARCH_MISS", `No results for: "${q}"`);
-    }
-
-    res.json({
-      songs: songs.map(s => ({
+    const songsWithUrls = await Promise.all(
+      songs.map(async (s) => ({
         id: s.id,
         title: s.title,
         artist: s.artist,
-        audioUrl: s.audio_url
+        audioUrl: await getFileUrl(s.audio_url)
       }))
-    });
+    );
+
+    res.json({ songs: songsWithUrls });
 
   } catch (err) {
     res.status(500).json({ error: "Search failed" });
@@ -591,46 +731,31 @@ app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     return res.status(400).json({ error: err.message });
   }
- 
   if (err && err.message === "Invalid file type") {
     return res.status(400).json({ error: err.message });
   }
-
   next(err);
 });
 
 app.use((err, req, res, next) => {
-  console.error("GLOBAL ERROR:", err);
-
- if (err instanceof multer.MulterError) {
-    return res.status(400).json({ error: err.message });
- }
-
- if (err && err.message === "Invalid file type") {
-    return res.status(400).json({ error: err.message });
- }
-
- if (!res.headersSent) {
-   return res.status(500).json({ error: "Internal server error" });
- }
+  if (!res.headersSent) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 async function startServer() {
-  try{
+  try {
     await initDB();
     console.log("✅ Database connected successfully");
 
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT} 🚀`);
-    });
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} 🚀`);
+  });
 
-  } catch (err) {
+} catch (err) {
     console.error("DB INIT ERROR:", err);
-    process.exit(1);
   }
 }
+
 const PORT = process.env.PORT || 3000;
-
 startServer();
-
-

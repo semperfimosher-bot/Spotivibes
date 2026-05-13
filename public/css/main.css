@@ -1,0 +1,544 @@
+:root {
+  --bg: #000000;
+  --panel: #141414;
+  --panel-2: #181818;
+  --hover: #2a2a2a;
+  --text: #ffffff;
+  --muted: #515151;
+  --accent: #004cff;
+}
+
+.hidden {
+  display: none;
+}
+
+/* =========================
+   GLOBAL
+========================= */
+body {
+  margin: 0;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* =========================
+   CANVAS LAYOUT
+========================= */
+#app {
+  display: grid;
+  grid-template-columns: 270px 1fr 270px;
+
+  height: 100vh;
+  gap: 12px;
+
+  padding: 68px 12px 6px;
+  box-sizing: border-box;
+  padding-bottom: 75px;
+}
+
+/* =========================
+   PANELS
+========================= */
+#sidebar-left,
+#sidebar-right,
+#main {
+  background: var(--panel);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* SIDE PANELS */
+#sidebar-left,
+#sidebar-right {
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* MAIN */
+#main {
+  padding: 14px;
+  overflow-y: auto;
+  background: linear-gradient(to bottom, #101010, #101010 200);
+}
+
+/* HIDE SCROLLBAR */
+#main {
+  scrollbar-width: none;
+  scrollbar-color: transparent rgb(0, 0, 0);
+}
+
+#main::-webkit-scrollbar {
+  display: none;
+}
+
+/* =========================
+   LEFT SIDEBAR
+========================= */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+#sidebar-left button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 10px;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+#sidebar-left button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* =========================
+   SEARCH
+========================= */
+#searchBarWrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+#searchBar {
+  width: 360px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(36, 36, 36, 0.85);
+  color: white;
+  outline: none;
+  font-size: 14px;
+  backdrop-filter: blur(10px);
+}
+
+#searchBar:focus {
+  background: rgba(33, 33, 33, 0.95);
+}
+
+/* =========================
+   GRID
+========================= */
+#recentGrid,
+#topSongsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+/* =========================
+   CARDS
+========================= */
+.card {
+  background: var(--panel-2);
+  padding: 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.card:hover {
+  background: var(--hover);
+  transform: translateY(-4px);
+}
+
+.thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: #333;
+}
+
+/* =========================
+   ROWS
+========================= */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.row:hover {
+  background: var(--hover);
+}
+
+/* =========================
+   RIGHT SIDEBAR
+========================= */
+#sidebar-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#nowPlayingCard {
+  background: linear-gradient(180deg, #1f1f1f, #121212);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+#nowPlayingCard.playing {
+  box-shadow: 0 0 8px rgb(0, 0, 255);
+  transform: scale(1.01);
+  transition: 0.3s ease;
+}
+
+#albumArt {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  background: #333;
+}
+
+#nowPlayingText {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* =========================
+   LYRICS
+========================= */
+#lyricsBox {
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 12px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+#lyricsText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+
+/* =========================
+   DESKTOP PLAYER BAR
+========================= */
+#playerBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+
+  height: 72px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  background: #000;
+
+  z-index: 50;
+}
+
+#playerControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#playerBar button {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+#playerBar button:hover {
+  transform: scale(1.15);
+  color: var(--accent);
+}
+
+/* =========================
+   DESKTOP PROGRESS BAR
+========================= */
+#progressBar {
+  width: 340px;
+  height: 3px;
+
+  appearance: none;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+
+  background: linear-gradient(
+    to right,
+    #004cff var(--progress, 0%),
+    #2a2a2a var(--progress, 0%)
+  );
+}
+
+#progressWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+}
+
+#progressBar::-webkit-slider-thumb {
+  appearance: none;
+  width: 0;
+  height: 0;
+}
+
+/* =========================
+   DROPDOWN
+========================= */
+#searchDropdown {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: 320px;
+
+  background: rgb(29, 28, 28);
+  backdrop-filter: blur(10px);
+
+  border-radius: 10px;
+  padding: 6px 0;
+
+  box-shadow: 0 10px 30px rgb(0, 0, 0);
+
+  z-index: 9999;
+
+  display: none;
+}
+
+.search-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 14px;
+}
+
+.search-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* =========================
+   MOBILE NAV
+========================= */
+
+#mobileNav {
+  display: none;
+}
+
+#miniPlayer {
+  display: none;
+}
+
+/* =========================
+   MOBILE LAYOUT
+========================= */
+
+@media (max-width: 800px) {
+
+  /* HIDE SEARCH BAR ON MOBILE */
+  #searchBarWrapper {
+    display: flex;
+  }
+   
+  #sidebar-left,
+  #sidebar-right {
+    display: none;
+  }
+
+  #app {
+    grid-template-columns: 1fr;
+  }
+
+  /* hide desktop player on mobile */
+  #playerBar {
+    display: none;
+  }
+
+  /* prevent content cutoff */
+  #main {
+    padding-bottom: 140px;
+  }
+
+  /* mobile nav */
+  #mobileNav {
+    position: fixed;
+
+    bottom: 0;
+    left: 0;
+    right: 0;
+
+    height: 65px;
+
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+
+    background: #000;
+
+    border-top: 1px solid #222;
+
+    z-index: 1000;
+  }
+
+  #mobileNav button {
+    background: none;
+    border: none;
+
+    color: #aaa;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: 4px;
+
+    font-size: 10px;
+  }
+
+  #mobileNav img {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* active mobile tab */
+  #mobileNav button.active {
+    color: white;
+  }
+
+  /* =========================
+     MINI PLAYER
+  ========================= */
+
+  #miniPlayer {
+    position: fixed;
+
+    bottom: 65px;
+    left: 0;
+    right: 0;
+
+    height: 64px;
+
+    background: #111;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 0px 12px;
+
+    z-index: 999;
+
+    border-top: 1px solid #222;
+  }
+
+  #miniLeft {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    flex: 1;
+    min-width: 0;
+  }
+
+  #miniAlbumArt {
+    width: 42px;
+    height: 42px;
+
+    border-radius: 6px;
+    background: #333;
+
+    flex-shrink: 0;
+  }
+
+  #miniMeta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    flex: 1;
+    min-width: 0;
+  }
+
+  #miniInfo {
+    font-size: 13px;
+    color: white;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* mobile progress bar */
+  #miniProgressBar {
+    width: 95%;
+    margin-top: 6px;
+
+    height: 2px;
+    appearance: none;
+    border-radius: 999px;
+    outline: none;
+
+    background: linear-gradient(
+      to right,
+      #004cff var(--progress, 0%),
+      #2a2a2a var(--progress, 0%)
+    );
+  }
+
+  #miniProgressBar::-webkit-slider-thumb {
+    appearance: none;
+    width: 0;
+    height: 0;
+  }
+
+  #miniControls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 12px;
+  }
+
+  #miniControls button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+  }
+
+  /* mobile search bar */
+  #searchBarWrapper {
+    top: 10px;
+    width: calc(100% - 24px);
+  }
+
+  #searchBar {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}

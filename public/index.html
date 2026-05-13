@@ -1,470 +1,196 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spotivibes</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #141414;
-      color: rgb(255, 255, 255);
-      overflow: hidden;
-    }
-
-    .sidebar {
-      width: 180px;
-      background: #000;
-      height: 100vh;
-      position: fixed;
-      padding: 20px;
-    }
-
-    .sidebar h2 { color: #0015ff; }
-
-    .sidebar p {
-      padding: 10px;
-      cursor: pointer;
-    }
-
-    .sidebar p:hover { background: #0f0f0f; }
-
-    .main {
-      margin-left: 220px;
-      height: calc(100vh - 90px);
-      overflow-y: auto;
-      padding: 20px;
-    }
-
-    .hidden { display: none; }
-
-    .searchWrapper {
-      display: flex;
-      justify-content: center;
-      margin: 10px 0 20px;
-    }
-
-    #searchBar {
-      width: 50%;
-      padding: 12px;
-      border-radius: 20px;
-      border: none;
-      text-align: center;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 12px;
-    }
-
-    .card {
-      background: #181818;
-      padding: 10px;
-      border-radius: 10px;
-      cursor: pointer;
-    }
-
-    .card:hover { background: #282828; }
-
-    .thumb {
-      width: 100%;
-      height: 120px;
-      background: #030cb8;
-      border-radius: 6px;
-      margin-bottom: 8px;
-    }
-
-    .row {
-      background: #0f0f0f;
-      padding: 10px;
-      margin: 6px 0;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .row:hover { background: #282828; }
-
-    #playerBar {
-      position: fixed;
-      bottom: 0;
-      left: 220px;
-      right: 0;
-      height: 50px;
-      background: #101010;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 20px;
-    }
-
-    #progressBar { width: 300px; }
-
-    #userBox {
-      color: white;
-      font-size: 12px;
-      margin-bottom: 10px;
-    }
-  </style>
+  <link rel="stylesheet" href="css/main.css">
 </head>
 
 <body>
 
-<div class="sidebar">
-  <h2>Spotivibes</h2>
+  <!-- APP WRAPPER -->
+  <div id="app">
 
-  <div id="userBox">Loading...</div>
+    <!-- LEFT SIDEBAR -->
+    <aside id="sidebar-left">
 
-  <p onclick="showPage('home')">Home</p>
-  <p onclick="showPage('library')">Library</p>
-  <p onclick="showPage('queue')">Queue</p>
+      <div class="logo">Spotivibes</div>
 
-  <p onclick="logout()" style="color:red;">Logout</p>
-</div>
+      <div id="userBox">Loading...</div>
 
-<div class="main">
+      <nav>
+        <button data-page="home">Home</button>
+        <button data-page="library">Library</button>
+        <button data-page="queue">Queue</button>
+        <button id="logoutBtn">Logout</button>
+      </nav>
 
-  <div id="homePage">
+      <div id="playlistContainer"></div>
 
-    <div class="searchWrapper">
-      <input id="searchBar" placeholder="Search songs..." oninput="searchSongs()">
+    </aside>
+
+    <!-- CENTER AREA -->
+    <main id="main">
+      
+      <section id="searchView" class="view hidden">
+
+        <header id="appHeader">
+          <div id="searchBarWrapper">
+            <input
+              id="searchBar"
+              placeholder="Search songs..."
+              data-ui="search-input"
+            />
+
+            <div id="searchDropdown" class="search-dropdown hidden"></div>
+          </div>
+        </header>
+
+        <h2>Search Results</h2>
+
+        <div id="searchList"></div>
+
+      </section>
+
+      <section id="homeView" class="view">
+        <h2>Made For You</h2>
+        <div id="topSongsGrid"></div>
+
+        <h2>Recently Uploaded</h2>
+        <div id="recentGrid"></div>
+      </section>
+
+      <section id="libraryView" class="view hidden">
+        <h2>Your Library</h2>
+        <div id="libraryList"></div>
+      </section>
+
+      <section id="queueView" class="view hidden">
+        <h2>Queue</h2>
+        <div id="queueList"></div>
+      </section>
+
+    </main>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside id="sidebar-right">
+
+      <div id="nowPlayingCard">
+        <div id="albumArt"></div>
+        <div id="nowPlayingText">Not Playing</div>
+      </div>
+
+      <div id="lyricsBox">
+        <h3>Lyrics</h3>
+        <pre id="lyricsText">No lyrics loaded</pre>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- DESKTOP PLAYER BAR -->
+  <header id="playerBar">
+
+    <div id="playerControls">
+      <button id="shuffleBtn">🔀</button>
+      <button id="prevBtn">⏮</button>
+      <button id="playBtn">▶</button>
+      <button id="nextBtn">⏭</button>
+      <button id="repeatBtn">🔁</button>
     </div>
 
-    <div id="homeContent">
-      <h3>Recently Uploaded</h3>
-      <div id="recentGrid" class="grid"></div>
+    <div id="progressWrapper">
 
-      <h3>Trending</h3>
-      <div id="trendingGrid" class="grid"></div>
+      <span id="currentTime">0:00</span>
+
+      <input
+        id="progressBar"
+        type="range"
+        min="0"
+        max="100"
+        value="0"
+      />
+
+      <span id="duration">0:00</span>
+
+      <div id="progressTooltip"></div>
     </div>
 
-    <div id="searchResults" class="hidden"></div>
+  </header>
+
+  <!-- MOBILE NAV -->
+  <div id="mobileNav">
+    <button data-page="home">
+      <img src="assets/icons/home.svg">
+      <span>Home</span>
+    </button>
+
+    <button data-page="search">
+      <img src="assets/icons/search.svg">
+      <span>Search</span>
+    </button>
+
+    <button data-page="library">
+      <img src="assets/icons/library.svg">
+      <span>Library</span>
+    </button>
+
+    <button id="moreBtn">
+      <img src="assets/icons/more.svg">
+      <span>More</span>
+    </button>
   </div>
 
-  <div id="libraryPage" class="hidden">
-    <h2>Library</h2>
-    <div id="savedSongs"></div>
+  <!-- MORE SHEET -->
+  <div id="moreSheet" class="hidden">
+    <button id="openQueue">Queue</button>
+    <button id="openLyrics">Lyrics</button>
+    <button id="openInfo">Song Info</button>
   </div>
 
-  <div id="queuePage" class="hidden">
-    <h2>Queue</h2>
-    <div id="queueList"></div>
+  <!-- MOBILE MINI PLAYER -->
+  <div id="miniPlayer">
+
+    <div id="miniLeft">
+
+      <div id="miniAlbumArt"></div>
+
+      <div id="miniMeta">
+        <div id="miniInfo">Not Playing</div>
+
+        <!-- MOBILE PROGRESS BAR -->
+        <input
+          id="miniProgressBar"
+          type="range"
+          min="0"
+          max="100"
+          value="0"
+        />
+      </div>
+
+    </div>
+
+    <div id="miniControls">
+      <button id="miniPrevBtn">⏮</button>
+      <button id="miniPlayBtn">▶</button>
+      <button id="miniNextBtn">⏭</button>
+    </div>
+
   </div>
 
-</div>
-
-<div id="playerBar">
-  <div id="nowPlaying">Not playing</div>
-
-  <div>
-    <button onclick="prevSong()">⏮</button>
-    <button id="playBtn" onclick="togglePlay()">▶</button>
-    <button onclick="nextSong()">⏭</button>
-
-    <input id="progressBar" type="range" min="0" max="100">
-  </div>
-</div>
-
-<audio id="audio"></audio>
-
-<script>
-
-const audio = document.getElementById("audio");
-const progressBar = document.getElementById("progressBar");
-const nowPlaying = document.getElementById("nowPlaying");
-
-const LAST_SONG_KEY = "spotivibes_last_song";
-const TIME_KEY_PREFIX = "spotivibes_time_";
-
-const state = {
-  songs: [],
-  currentId: null,
-  library: JSON.parse(localStorage.getItem("library")) || []
-};
-
-let resumeMode = false;
-
-/* BACKGROUND */
-
-function loadBackground() {
-  fetch("/api/background", { credentials: "include" })
-    .then(r => r.json())
-    .then(data => {
-
-      const url = data.url;
-
-      if (url) {
-        document.body.style.backgroundImage = `url('${url}')`;
-        document.body.style.backgroundSize = "cover";
-        document.body.style.backgroundPosition = "center";
-        document.body.style.backgroundAttachment = "fixed";
-
-        localStorage.setItem("bgImage", url);
-      }
-    })
-    .catch(err => {
-      console.error("Background load error", err);
-
-      const cached = localStorage.getItem("bgImage");
-      if (cached) {
-        document.body.style.backgroundImage = `url('${cached}')`;
-      }
-    });
-}
-
-/* USER */
-function loadUser() {
-  fetch("/api/me", { credentials: "include" })
-    .then(r => r.json())
-    .then(data => {
-      const box = document.getElementById("userBox");
-      box.innerText = data.loggedIn
-        ? `👤 ${data.user.firstName} ${data.user.lastName}`
-        : "Not logged in";
-    });
-}
-
-/* LOGOUT */
-function logout() {
-  fetch("/api/logout", { method: "POST", credentials: "include" })
-    .finally(() => window.location.href = "/login");
-}
-
-/* SONGS */
-function loadSongs() {
-  fetch("/api/songs", { credentials: "include" })
-    .then(r => r.json())
-    .then(data => {
-      state.songs = data.songs || [];
-
-      renderHome();
-      renderLibrary();
-
-      restoreLastSong();
-    });
-}
-
-function getSongById(id) {
-  return state.songs.find(s => s.id === id);
-}
-
-/* FIXED ONLY HERE */
-function playSong(id) {
-  const s = getSongById(id);
-
-  if (!s || !s.audioUrl) {
-    console.error("Missing song or audioUrl:", s);
-    return;
-  }
-
-  audio.src = s.audioUrl;
-
-  state.currentId = id;
-  resumeMode = false;
-
-  localStorage.setItem(LAST_SONG_KEY, id);
-  localStorage.setItem(TIME_KEY_PREFIX + id, 0);
-
-  nowPlaying.innerText = `${s.title} - ${s.artist}`;
-
-  audio.play()
-    .then(syncButton)
-    .catch(err => console.error("Playback failed:", err));
-
-  renderQueue();
-}
-
-/* RESTORE */
-function restoreLastSong() {
-  const saved = localStorage.getItem(LAST_SONG_KEY);
-  if (!saved) return;
-
-  const id = Number(saved);
-  const song = getSongById(id);
-  if (!song) return;
-
-  state.currentId = id;
-  resumeMode = true;
-
-  audio.src = song.audioUrl;
-
-  const resume = parseFloat(localStorage.getItem(TIME_KEY_PREFIX + id)) || 0;
-
-  audio.addEventListener("loadedmetadata", () => {
-    audio.currentTime = resume;
-    audio.pause();
-  }, { once: true });
-
-  nowPlaying.innerText = `${song.title} - ${song.artist}`;
-}
-
-/* CONTROLS */
-function togglePlay() {
-  if (!audio.src) {
-    const saved = localStorage.getItem(LAST_SONG_KEY);
-    if (saved) playSong(Number(saved));
-    return;
-  }
-
-  if (audio.paused) {
-    audio.play().catch(err => console.error(err));
-  } else {
-    audio.pause();
-  }
-
-  syncButton();
-}
-
-function syncButton() {
-  const btn = document.getElementById("playBtn");
-  if (!btn) return;
-  btn.innerText = audio.paused ? "▶" : "⏸";
-}
-
-function nextSong() {
-  const i = state.songs.findIndex(s => s.id === state.currentId);
-  if (i >= 0 && i < state.songs.length - 1) {
-    playSong(state.songs[i + 1].id);
-  }
-}
-
-function prevSong() {
-  const i = state.songs.findIndex(s => s.id === state.currentId);
-  if (i > 0) playSong(state.songs[i - 1].id);
-}
-
-/* PROGRESS */
-audio.addEventListener("timeupdate", () => {
-  if (!audio.duration || !state.currentId) return;
-
-  progressBar.value = (audio.currentTime / audio.duration) * 100;
-
-  localStorage.setItem(
-    TIME_KEY_PREFIX + state.currentId,
-    audio.currentTime
-  );
-});
-
-progressBar.addEventListener("input", () => {
-  if (!audio.duration) return;
-  audio.currentTime = (progressBar.value / 100) * audio.duration;
-});
-
-audio.addEventListener("play", syncButton);
-audio.addEventListener("pause", syncButton);
-audio.addEventListener("ended", nextSong);
-
-/* SEARCH */
-function searchSongs() {
-  const q = document.getElementById("searchBar").value.toLowerCase();
-  const home = document.getElementById("homeContent");
-  const results = document.getElementById("searchResults");
-
-  if (!q) {
-    results.classList.add("hidden");
-    home.classList.remove("hidden");
-    return;
-  }
-
-  home.classList.add("hidden");
-  results.classList.remove("hidden");
-  results.innerHTML = "";
-
-  state.songs
-    .filter(s => (s.title + " " + s.artist).toLowerCase().includes(q))
-    .forEach(s => {
-      const div = document.createElement("div");
-      div.className = "row";
-      div.innerText = `${s.title} - ${s.artist}`;
-      div.onclick = () => playSong(s.id);
-      results.appendChild(div);
-    });
-}
-
-/* HOME */
-function renderHome() {
-  const recent = document.getElementById("recentGrid");
-  const trending = document.getElementById("trendingGrid");
-
-  recent.innerHTML = "";
-  trending.innerHTML = "";
-
-  state.songs.slice().reverse().slice(0, 6).forEach(s => {
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `<div class="thumb"></div><div>${s.title}</div>`;
-    div.onclick = () => playSong(s.id);
-    recent.appendChild(div);
-  });
-
-  state.songs.slice(0, 6).forEach(s => {
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `<div class="thumb"></div><div>${s.title}</div>`;
-    div.onclick = () => playSong(s.id);
-    trending.appendChild(div);
-  });
-}
-
-/* LIBRARY */
-function renderLibrary() {
-  const box = document.getElementById("savedSongs");
-  box.innerHTML = "";
-
-  state.library.forEach(id => {
-    const s = getSongById(id);
-    if (!s) return;
-
-    const div = document.createElement("div");
-    div.className = "row";
-    div.innerText = `${s.title} - ${s.artist}`;
-    div.onclick = () => playSong(id);
-    box.appendChild(div);
-  });
-}
-
-/* QUEUE */
-function renderQueue() {
-  const box = document.getElementById("queueList");
-  box.innerHTML = "";
-
-  const index = state.songs.findIndex(s => s.id === state.currentId);
-  const queue = index >= 0 ? state.songs.slice(index) : [];
-
-  queue.forEach(s => {
-    const div = document.createElement("div");
-    div.className = "row";
-    div.innerText = `${s.title} - ${s.artist}`;
-    div.onclick = () => playSong(s.id);
-    box.appendChild(div);
-  });
-}
-
-/* NAV */
-function showPage(page) {
-  ["homePage", "libraryPage", "queuePage"].forEach(id => {
-    document.getElementById(id).classList.add("hidden");
-  });
-
-  document.getElementById(page + "Page").classList.remove("hidden");
-
-  if (page === "library") renderLibrary();
-  if (page === "queue") renderQueue();
-}
-
-/* INIT */
-function load() {
-  loadUser();
-  loadSongs();
-  loadBackground();
-}
-
-window.addEventListener("DOMContentLoaded", load);
-
-</script>
+  <!-- AUDIO ENGINE -->
+  <audio id="audio"></audio>
+
+  <!-- JS ORDER -->
+  <script src="js/constants.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/router.js"></script>
+  <script src="js/app.js"></script>
 
 </body>
 </html>
-
