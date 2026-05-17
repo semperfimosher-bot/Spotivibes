@@ -1,66 +1,167 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Login</title>
+  <title>Spotivibes Login</title>
+  <link rel="stylesheet" href="style.css">
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-family: Arial;
-      background: rgb(28, 28, 28);
-      color: rgb(87, 86, 86);
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      color: white;
+
       display: flex;
-      justify-content: center;
       align-items: center;
-      height: 100vh;
+      justify-content: center;
+
+      background:
+        radial-gradient(circle at top left, rgba(0,76,255,0.35), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(0,20,120,0.45), transparent 35%),
+        #050505;
+
+      overflow: hidden;
+    }
+
+    .glow {
+      position: fixed;
+      width: 360px;
+      height: 360px;
+      background: rgba(0,76,255,0.22);
+      filter: blur(80px);
+      border-radius: 50%;
+      animation: float 7s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(-80px, -60px); }
+      50% { transform: translate(80px, 60px); }
     }
 
     .box {
-      width: 340px;
-      background: #000000;
-      padding: 20px;
-      border-radius: 10px;
+      position: relative;
+      width: 380px;
+      padding: 28px;
+
+      background: rgba(18,18,18,0.78);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+
+      box-shadow:
+        0 20px 70px rgba(0,0,0,0.65),
+        0 0 40px rgba(0,76,255,0.14);
+
+      backdrop-filter: blur(18px);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 34px;
+      letter-spacing: -1px;
+    }
+
+    .accent {
+      color: #004cff;
+    }
+
+    .subtitle {
+      margin: 8px 0 24px;
+      color: #aaa;
+      font-size: 14px;
     }
 
     input {
-      width: 94%;
-      padding: 10px;
-      margin: 6px 0;
+      width: 100%;
+      padding: 13px 14px;
+      margin-bottom: 10px;
+
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+
+      background: rgba(255,255,255,0.06);
+      color: white;
+      outline: none;
+      font-size: 14px;
+    }
+
+    input:focus {
+      border-color: rgba(0,76,255,0.7);
+      box-shadow: 0 0 0 3px rgba(0,76,255,0.14);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
     }
 
     button {
-      width: 100%;
-      padding: 10px;
-      background: #0d0780;
+      flex: 1;
+      padding: 12px;
+
       border: none;
-      cursor: pointer;
+      border-radius: 8px;
+
       color: white;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .primary {
+      background: linear-gradient(135deg, #004cff, #001eff);
+      box-shadow: 0 10px 24px rgba(0,76,255,0.28);
+    }
+
+    .secondary {
+      background: rgba(255,255,255,0.08);
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 480px) {
+      .box {
+        width: calc(100% - 28px);
+        padding: 22px;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 
 <body>
 
+<div class="glow"></div>
+
 <div class="box">
-  <h2>Spotivibes Login</h2>
+  <h1>Spoti<span class="accent">vibes</span></h1>
+  <p class="subtitle">Your music, your playlists, your vibe.</p>
 
   <input id="firstName" placeholder="First Name">
   <input id="lastName" placeholder="Last Name">
   <input id="email" placeholder="Email">
   <input id="password" type="password" placeholder="Password">
 
-  <button onclick="register()">Create Account</button>
-  <button onclick="login()">Login</button>
+  <div class="actions">
+    <button class="secondary" onclick="register()">Create</button>
+    <button class="primary" onclick="login()">Login</button>
+  </div>
 </div>
 
 <script>
-
-/* ================= LOGIN ================= */
 function login() {
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  if (!firstName || !lastName || !email || !password) {
+  if (!email || !password) {
     alert("Please fill in email and password");
     return;
   }
@@ -72,56 +173,36 @@ function login() {
   })
   .then(res => res.json())
   .then(data => {
-    if (data.success) {
-      window.location.href = "/";
-    } else {
-      alert(data.error || "Login failed");
-    }
+    if (data.success) window.location.href = "/";
+    else alert(data.error || "Login failed");
   })
-  .catch(err => {
-    console.error(err);
-    alert("Login request failed");
-  });
+  .catch(() => alert("Login request failed"));
 }
 
-/* ================= REGISTER ================= */
 function register() {
   const firstName = document.getElementById("firstName").value;
   const lastName = document.getElementById("lastName").value;
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  if (!email || !password) {
-    alert("Please fill in required fields");
+  if (!firstName || !lastName || !email || !password) {
+    alert("Please fill in all fields");
     return;
   }
 
   fetch("/api/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      firstName,
-      lastName,
-      email,
-      password
-    })
+    body: JSON.stringify({ firstName, lastName, email, password })
   })
   .then(res => res.json())
   .then(data => {
-    if (data.success) {
-      window.location.href = "/";
-    } else {
-      alert(data.error || "Registration failed");
-    }
+    if (data.success) window.location.href = "/";
+    else alert(data.error || "Registration failed");
   })
-  .catch(err => {
-    console.error(err);
-    alert("Register request failed");
-  });
+  .catch(() => alert("Register request failed"));
 }
-
 </script>
 
 </body>
 </html>
-

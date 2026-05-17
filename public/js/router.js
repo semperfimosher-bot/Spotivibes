@@ -1,28 +1,46 @@
 function initNavigation() {
   const bindNav = () => {
     document.querySelectorAll("[data-page]").forEach(btn => {
-      btn.onclick = () => {
+      if (btn.dataset.bound === "true") return;
+
+      btn.dataset.bound = "true";
+
+      btn.addEventListener("click", () => {
         const page = btn.dataset.page;
 
-        showView(page);
+        if (page === "search") {
+          showView("home");
+          renderHome();
+
+          setTimeout(() => {
+            document.getElementById("searchBar")?.focus();
+          }, 0);
+        } else {
+          showView(page);
+
+          if (page === "home") {
+            renderHome();
+          }
+        }
+
         updateActiveTab(page);
-      };
+      });
     });
   };
 
   bindNav();
 
-  // 🔧 in case mobile nav renders later
   setTimeout(bindNav, 300);
 
   document.getElementById("logoutBtn")?.addEventListener("click", logout);
 }
 
 /**
- * Updates active tab highlight for mobile nav
+ * Updates active tab highlight for mobile nav and sidebar
  */
 function updateActiveTab(page) {
-  document.querySelectorAll("#mobileNav button")
+  document
+    .querySelectorAll("#mobileNav button[data-page], #sidebar-left button[data-page]")
     .forEach(btn => {
       btn.classList.toggle(
         "active",

@@ -62,7 +62,7 @@
       padding: 10px;
       border: none;
       border-radius: 6px;
-      background: #1db954;
+      background: #001aff;
       cursor: pointer;
     }
   </style>
@@ -103,6 +103,9 @@
       <input type="file" id="bgFile" />
       <br><br>
       <button onclick="uploadBackground()">Upload Background</button>
+      <button id="deleteAllContentBtn">
+        Delete All Content
+      </button>
 
       <p id="bgStatus"></p>
     </div>
@@ -236,6 +239,42 @@ function loadNotifications() {
         `).join("");
     });
 }
+
+document.getElementById("deleteAllContentBtn")
+  ?.addEventListener("click", async () => {
+
+    const code = prompt(
+      "Type 2009 to delete all content:"
+    );
+
+    if (code !== "2009") {
+      alert("Wrong code.");
+      return;
+    }
+
+    const res = await fetch(
+      "/api/admin/delete-all-content",
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        credentials: "include",
+        body: JSON.stringify({ code })
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "Delete failed");
+      return;
+    }
+
+    alert("All content deleted.");
+
+    location.reload();
+});
 
 loadSongs();
 

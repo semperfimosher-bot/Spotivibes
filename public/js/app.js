@@ -5,7 +5,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   initUI();
 
+  restoreLastPlayback?.();
+
   document.getElementById("playBtn")?.addEventListener("click", togglePlay);
-  document.getElementById("nextBtn").onclick = nextSong;
-  document.getElementById("prevBtn").onclick = prevSong;
+  document.getElementById("nextBtn").addEventListener("click", nextSong);
+  document.getElementById("prevBtn").addEventListener("click", prevSong);
 });

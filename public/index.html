@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spotivibes</title>
 
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="css/main.css">
 </head>
 
@@ -16,46 +17,58 @@
     <!-- LEFT SIDEBAR -->
     <aside id="sidebar-left">
 
-      <div class="logo">Spotivibes</div>
-
-      <div id="userBox">Loading...</div>
-
-      <nav>
-        <button data-page="home">Home</button>
-        <button data-page="library">Library</button>
-        <button data-page="queue">Queue</button>
-        <button id="logoutBtn">Logout</button>
-      </nav>
-
       <div id="playlistContainer"></div>
+
+  <div id="sidebarLibrary">
+  <div id="libraryHeader">
+    <h3>Your Library</h3>
+    <button id="createPlaylistBtn">＋</button>
+  </div>
+
+  <div id="sidebarLibraryList"></div>
+</div>
 
     </aside>
 
     <!-- CENTER AREA -->
     <main id="main">
       
-      <section id="searchView" class="view hidden">
+      <header id="appHeader">
 
-        <header id="appHeader">
-          <div id="searchBarWrapper">
-            <input
-              id="searchBar"
-              placeholder="Search songs..."
-              data-ui="search-input"
-            />
+        <div id="topLogo">
+           <img src="assets/logo.png" alt="Spotivibes Logo">
+        </div>
 
-            <div id="searchDropdown" class="search-dropdown hidden"></div>
-          </div>
-        </header>
+  <div id="searchBarWrapper">
+    <input
+      id="searchBar"
+      placeholder="Search songs..."
+      data-ui="search-input"
+    />
 
-        <h2>Search Results</h2>
+    <div id="searchDropdown" class="search-dropdown hidden"></div>
+  </div>
 
-        <div id="searchList"></div>
+ <div id="profileBox">
+  <div id="profileAvatar">?</div>
+  <div id="userBox">Loading...</div>
 
-      </section>
+  <div id="profileMenu" class="hidden">
+    <button id="uploadProfilePicBtn">Upload Profile Picture</button>
+    <button id="openStatsBtn">Listening Stats</button>
+    <button id="profileLogoutBtn">Logout</button>
+  </div>
+
+  <input
+    id="profilePicInput"
+    type="file"
+    accept="image/*"
+    class="hidden"
+  />
+</div>
+</header>
 
       <section id="homeView" class="view">
-        <h2>Made For You</h2>
         <div id="topSongsGrid"></div>
 
         <h2>Recently Uploaded</h2>
@@ -71,6 +84,24 @@
         <h2>Queue</h2>
         <div id="queueList"></div>
       </section>
+
+      <section id="statsView" class="view hidden">
+        <h2>Listening Stats</h2>
+        <div id="artistStatsList"></div>
+      </section>
+
+      <section id="mobileSearchView" class="view hidden">
+  <div id="mobileSearchWrapper">
+    <input
+      id="mobileSearchBar"
+      placeholder="Search songs..."
+      autocomplete="off"
+    />
+
+    <div id="mobileSearchResults"></div>
+    <div id="mobileRecentSearches"></div>
+  </div>
+</section>
 
     </main>
 
@@ -102,6 +133,18 @@
       <button id="repeatBtn">🔁</button>
     </div>
 
+    <div id="bottomNav">
+
+  <button data-page="home" class="bottom-nav-btn">
+  <img src="assets/icons/home.svg">
+</button>
+
+  <button id="desktopMoreBtn" class="bottom-nav-btn">
+    <img src="assets/icons/more.svg">
+  </button>
+
+</div>
+
     <div id="progressWrapper">
 
       <span id="currentTime">0:00</span>
@@ -128,7 +171,7 @@
       <span>Home</span>
     </button>
 
-    <button data-page="search">
+    <button data-page="mobileSearch">
       <img src="assets/icons/search.svg">
       <span>Search</span>
     </button>
@@ -138,18 +181,25 @@
       <span>Library</span>
     </button>
 
-    <button id="moreBtn">
-      <img src="assets/icons/more.svg">
-      <span>More</span>
-    </button>
+<button id="mobileMoreBtn">
+  <img src="assets/icons/more.svg">
+  <span>More</span>
+</button>
   </div>
 
   <!-- MORE SHEET -->
   <div id="moreSheet" class="hidden">
     <button id="openQueue">Queue</button>
-    <button id="openLyrics">Lyrics</button>
     <button id="openInfo">Song Info</button>
   </div>
+
+  <div id="songInfoModal" class="hidden">
+  <div id="songInfoCard">
+    <button id="closeSongInfo">×</button>
+    <h2>Song Info</h2>
+    <div id="songInfoContent"></div>
+  </div>
+</div>
 
   <!-- MOBILE MINI PLAYER -->
   <div id="miniPlayer">
@@ -174,10 +224,18 @@
     </div>
 
     <div id="miniControls">
-      <button id="miniPrevBtn">⏮</button>
-      <button id="miniPlayBtn">▶</button>
-      <button id="miniNextBtn">⏭</button>
-    </div>
+
+  <button id="mobileShuffleBtn">🔀</button>
+
+  <button id="miniPrevBtn">⏮</button>
+
+  <button id="miniPlayBtn">▶</button>
+
+  <button id="miniNextBtn">⏭</button>
+
+  <button id="mobileRepeatBtn">🔁</button>
+
+</div>
 
   </div>
 
@@ -191,6 +249,29 @@
   <script src="js/ui.js"></script>
   <script src="js/router.js"></script>
   <script src="js/app.js"></script>
+
+  <div id="playlistModal" class="hidden">
+  <div id="playlistModalCard">
+
+    <h2>Create Playlist</h2>
+
+    <input
+      id="playlistNameInput"
+      placeholder="My Playlist"
+    />
+
+    <div id="playlistModalActions">
+      <button id="cancelPlaylistBtn">
+        Cancel
+      </button>
+
+      <button id="savePlaylistBtn">
+        Create
+      </button>
+    </div>
+
+  </div>
+</div>
 
 </body>
 </html>

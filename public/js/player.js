@@ -1,5 +1,12 @@
+let syncedLyrics = [];
+let currentLyricIndex = -1;
+let repeatMode = false;
+let shuffleMode = false;
+
+const LAST_PLAYBACK_KEY = "spotivibes_last_playback";
+
 function getSong(id) {
-  return state.songs.find(s => s.id === id);
+  return state.songs.find(s => String(s.id) === String(id));
 }
 
 function playSong(id) {
@@ -8,14 +15,43 @@ function playSong(id) {
 
   state.currentId = id;
 
-  audio.src = song.audioUrl;
-  audio.currentTime = 0;
+  trackListeningStats(song);
+
+ const saved = JSON.parse(
+  localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
+);
+
+audio.src = song.audioUrl;
+
+audio.addEventListener("loadedmetadata", function restoreTime() {
+  audio.removeEventListener("loadedmetadata", restoreTime);
+
+  if (String(saved.id) === String(song.id) && saved.time) {
+    audio.currentTime = saved.time;
+  }
+
   audio.play();
+});
 
   state.isPlaying = true;
+  const albumArt = document.getElementById("albumArt");
+if (albumArt) {
+  albumArt.style.backgroundImage = song.coverUrl
+    ? `url('${song.coverUrl}')`
+    : "";
+}
+
+const miniAlbumArt = document.getElementById("miniAlbumArt");
+if (miniAlbumArt) {
+  miniAlbumArt.style.backgroundImage = song.coverUrl
+    ? `url('${song.coverUrl}')`
+    : "";
+}
 
   document.getElementById("nowPlayingText").innerText =
     `${song.title} - ${song.artist}`;
+
+    loadSyncedLyrics(song.lyrics);
 
   const miniInfo = document.getElementById("miniInfo");
   if (miniInfo) {
@@ -30,6 +66,7 @@ function playSong(id) {
     ?.classList.add("playing");
 
   updatePlayButton();
+  highlightCurrentSong?.();
 }
 
 function togglePlay() {
@@ -63,8 +100,32 @@ function updatePlayButton() {
 }
 
 function nextSong() {
+  if (repeatMode && state.currentId) {
+  audio.currentTime = 0;
+  audio.play();
+
+  state.isPlaying = true;
+
+  updatePlayButton();
+  return;
+}
+
+  if (shuffleMode) {
+    const otherSongs = state.songs.filter(
+      s => String(s.id) !== String(state.currentId)
+    );
+
+    if (!otherSongs.length) return;
+
+    const randomSong =
+      otherSongs[Math.floor(Math.random() * otherSongs.length)];
+
+    playSong(randomSong.id);
+    return;
+  }
+
   const i = state.songs.findIndex(
-    s => s.id === state.currentId
+    s => String(s.id) === String(state.currentId)
   );
 
   if (i < state.songs.length - 1) {
@@ -95,6 +156,54 @@ document.getElementById("miniPrevBtn")
 document.getElementById("miniNextBtn")
   ?.addEventListener("click", nextSong);
 
+  document.getElementById("repeatBtn")
+  ?.addEventListener("click", () => {
+    repeatMode = !repeatMode;
+
+    document
+      .getElementById("repeatBtn")
+      ?.classList.toggle("active", repeatMode);
+  });
+
+document.getElementById("shuffleBtn")
+  ?.addEventListener("click", () => {
+    shuffleMode = !shuffleMode;
+
+    document
+      .getElementById("shuffleBtn")
+      ?.classList.toggle("active", shuffleMode);
+  });
+
+  document.getElementById("mobileShuffleBtn")
+  ?.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    shuffleMode = !shuffleMode;
+
+    document
+      .querySelectorAll("#shuffleBtn, #mobileShuffleBtn")
+      .forEach(btn => {
+        btn.classList.toggle("active", shuffleMode);
+      });
+
+    console.log("Shuffle:", shuffleMode);
+  });
+
+document.getElementById("mobileRepeatBtn")
+  ?.addEventListener("click", (e) => {
+    e.stopPropagation();
+
+    repeatMode = !repeatMode;
+
+    document
+      .querySelectorAll("#repeatBtn, #mobileRepeatBtn")
+      .forEach(btn => {
+        btn.classList.toggle("active", repeatMode);
+      });
+
+    console.log("Repeat:", repeatMode);
+  });
+
 /* =========================
    SMOOTH PROGRESS ENGINE
 ========================= */
@@ -110,6 +219,8 @@ function updateProgressBar() {
     progressRAF = requestAnimationFrame(updateProgressBar);
     return;
   }
+
+  updateSyncedLyrics();
 
   const progress =
     (audio.currentTime / audio.duration) * 100;
@@ -145,6 +256,14 @@ function updateProgressBar() {
     `${progress}%`
   );
 
+  localStorage.setItem(
+  LAST_PLAYBACK_KEY,
+  JSON.stringify({
+    id: state.currentId,
+    time: audio.currentTime
+  })
+);
+
   progressRAF =
     requestAnimationFrame(updateProgressBar);
 }
@@ -169,9 +288,6 @@ audio.addEventListener("pause", () => {
   cancelAnimationFrame(progressRAF);
 
   updatePlayButton();
-
-  document.getElementById("nowPlayingCard")
-    ?.classList.remove("playing");
 });
 
 audio.addEventListener("ended", () => {
@@ -180,8 +296,11 @@ audio.addEventListener("ended", () => {
   document.documentElement
     .style.setProperty("--progress", "0%");
 
-  document.getElementById("nowPlayingCard")
-    ?.classList.remove("playing");
+  if (repeatMode) {
+    audio.currentTime = 0;
+    audio.play();
+    return;
+  }
 
   nextSong();
 });
@@ -263,6 +382,85 @@ progressBar?.addEventListener("mouseleave", () => {
   }
 });
 
+function parseLRC(lyrics) {
+  if (!lyrics) return [];
+
+  return lyrics
+    .split("\n")
+    .map(line => {
+      const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
+
+      if (!match) return null;
+
+      const minutes = Number(match[1]);
+      const seconds = Number(match[2]);
+      const text = match[3].trim();
+
+      return {
+        time: minutes * 60 + seconds,
+        text
+      };
+    })
+    .filter(item => item && item.text);
+}
+
+function loadSyncedLyrics(lyrics) {
+  const lyricsText = document.getElementById("lyricsText");
+
+  if (!lyricsText) return;
+
+  syncedLyrics = parseLRC(lyrics);
+  currentLyricIndex = -1;
+
+  if (!lyrics) {
+    lyricsText.innerHTML = "No lyrics available";
+    return;
+  }
+
+  if (!syncedLyrics.length) {
+    lyricsText.innerText = lyrics;
+    return;
+  }
+
+  lyricsText.innerHTML = syncedLyrics
+  .map((line, index) =>
+    `<div class="lyric-line" data-index="${index}">${line.text}</div>`
+  )
+  .join("");
+}
+function updateSyncedLyrics() {
+  if (!syncedLyrics.length) return;
+
+  const currentTime = audio.currentTime;
+
+  let activeIndex = syncedLyrics.findIndex((line, index) => {
+    const nextLine = syncedLyrics[index + 1];
+    return currentTime >= line.time &&
+      (!nextLine || currentTime < nextLine.time);
+  });
+
+  if (activeIndex === -1 || activeIndex === currentLyricIndex) return;
+
+  currentLyricIndex = activeIndex;
+
+  document.querySelectorAll(".lyric-line").forEach(line => {
+    line.classList.remove("active");
+  });
+
+  const activeLine = document.querySelector(
+    `.lyric-line[data-index="${activeIndex}"]`
+  );
+
+  if (activeLine) {
+    activeLine.classList.add("active");
+
+    activeLine.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    });
+  }
+}
+
 /* =========================
    HELPERS
 ========================= */
@@ -277,4 +475,78 @@ function formatTime(seconds) {
   const s = Math.floor(seconds % 60);
 
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function restoreLastPlayback() {
+  const saved = JSON.parse(
+    localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
+  );
+
+  if (!saved.id) return;
+
+  const song = getSong(saved.id);
+  if (!song) return;
+
+  state.currentId = song.id;
+
+  // instant UI update
+  document.getElementById("nowPlayingText").innerText =
+    `${song.title} - ${song.artist}`;
+
+  document.getElementById("miniInfo").innerText =
+    `${song.title} - ${song.artist}`;
+
+  const albumArt = document.getElementById("albumArt");
+  if (albumArt) {
+    albumArt.style.backgroundImage = song.coverUrl
+      ? `url('${song.coverUrl}')`
+      : "";
+  }
+
+  const miniAlbumArt = document.getElementById("miniAlbumArt");
+  if (miniAlbumArt) {
+    miniAlbumArt.style.backgroundImage = song.coverUrl
+      ? `url('${song.coverUrl}')`
+      : "";
+  }
+
+  loadSyncedLyrics?.(song.lyrics);
+  updatePlayButton();
+
+  // audio loads after UI
+  audio.src = song.audioUrl;
+
+  audio.addEventListener("loadedmetadata", function restoreTime() {
+    audio.removeEventListener("loadedmetadata", restoreTime);
+
+    if (saved.time) {
+      audio.currentTime = saved.time;
+    }
+  });
+}
+
+function trackListeningStats(song) {
+
+if (!song || !song.title || !song.artist) return;
+
+  const stats =
+    JSON.parse(localStorage.getItem("listeningStats")) || {};
+
+  const artist = song.artist || "Unknown Artist";
+  const title = song.title || "Unknown Title";
+
+  if (!stats[artist]) {
+    stats[artist] = {};
+  }
+
+  if (!stats[artist][title]) {
+    stats[artist][title] = 0;
+  }
+
+  stats[artist][title] += 1;
+
+  localStorage.setItem(
+    "listeningStats",
+    JSON.stringify(stats)
+  );
 }

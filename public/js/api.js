@@ -26,15 +26,44 @@ async function apiFetch(url, options = {}) {
 async function loadUser() {
   const data = await apiFetch("/api/me");
   const box = document.getElementById("userBox");
+  const avatar = document.getElementById("profileAvatar");
 
   if (!data || !data.loggedIn) {
-    box.innerText = "Not logged in";
+    if (box) box.innerText = "Not logged in";
+    if (avatar) avatar.innerText = "?";
     return;
   }
 
-  box.innerText = `👤 ${data.user.firstName} ${data.user.lastName}`;
-}
+  const firstName = data.user.firstName || "";
+  const lastName = data.user.lastName || "";
 
+  if (box) {
+    box.innerText = `${firstName} ${lastName}`;
+  }
+
+  if (avatar) {
+    avatar.innerText =
+      `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase();
+      const savedPic = localStorage.getItem("profilePic");
+
+if (savedPic) {
+  avatar.innerText = "";
+
+  avatar.style.backgroundImage =
+    `url('${savedPic}')`;
+
+  avatar.style.backgroundSize = "cover";
+  avatar.style.backgroundPosition = "center";
+}
+  }
+
+  if (data.user.profilePicUrl && avatar) {
+    avatar.innerText = "";
+    avatar.style.backgroundImage = `url('${data.user.profilePicUrl}')`;
+    avatar.style.backgroundSize = "cover";
+    avatar.style.backgroundPosition = "center";
+  }
+}
 // =========================
 // LOAD SONGS
 // =========================

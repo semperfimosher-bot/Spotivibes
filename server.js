@@ -9,6 +9,7 @@ const PgSession = require("connect-pg-simple")(session);
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 const { z } = require("zod");
+const mm = require("music-metadata");
 
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
@@ -122,9 +123,22 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       title TEXT,
       artist TEXT,
-      audio_url TEXT
+      audio_url TEXT,
+      genre TEXT,
+      album TEXT,
+      duration REAL,
+      cover_url TEXT
     )
   `);
+
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS genre TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS album TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS duration REAL`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS cover_url TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS lyrics TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS mood TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS year TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS year TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS notifications (
@@ -163,7 +177,6 @@ async function initDB() {
 }
 
 /* ---------------- HELPERS ---------------- */
-
 async function addNotification(type, message) {
   try {
     const time = new Date().toISOString();
@@ -175,6 +188,72 @@ async function addNotification(type, message) {
   } catch (err) {
     console.error("Notification error:", err);
   }
+}
+async function fetchGenreFromITunes({ title, artist }) {
+  try {
+    const term = `${artist || ""} ${title || ""}`.trim();
+
+    if (!term) return null;
+
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=1`
+    );
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+
+    return data.results?.[0]?.primaryGenreName || null;
+
+  } catch (err) {
+    console.warn("iTunes genre lookup failed:", err.message);
+    return null;
+  }
+}
+async function fetchLyricsFromLRCLIB({ title, artist, album, duration }) {
+  try {
+    const params = new URLSearchParams({
+      track_name: title || "",
+      artist_name: artist || "",
+    });
+
+    if (album) {
+      params.append("album_name", album);
+    }
+
+    if (duration) {
+      params.append("duration", Math.round(duration));
+    }
+
+    const res = await fetch(
+      `https://lrclib.net/api/get?${params.toString()}`
+    );
+
+    if (!res.ok) {
+      console.warn("LRCLIB lyrics not found:", title, artist);
+      return null;
+    }
+
+    const data = await res.json();
+
+    return data.syncedLyrics || data.plainLyrics || null;
+  } catch (err) {
+    console.warn("LRCLIB fetch failed:", err.message);
+    return null;
+  }
+}
+
+async function fetchLyrics({ title, artist, album, duration }) {
+  const lrclibLyrics = await fetchLyricsFromLRCLIB({
+    title,
+    artist,
+    album,
+    duration
+  });
+
+  if (lrclibLyrics) return lrclibLyrics;
+
+  return null;
 }
 
 /* =========================
@@ -394,16 +473,60 @@ app.delete("/api/users/:id", requireAdmin, async (req, res) => {
 
 /* ---------------- GET SONGS ---------------- */
 
+app.delete(
+  "/api/admin/delete-all-content",
+  requireAdmin,
+  async (req, res) => {
+
+    try {
+      const { code } = req.body;
+
+      if (code !== "2009") {
+        return res.status(403).json({
+          error: "Invalid confirmation code"
+        });
+      }
+
+      await pool.query("DELETE FROM playlist_songs");
+      await pool.query("DELETE FROM playlists");
+      await pool.query("DELETE FROM notifications");
+      await pool.query("DELETE FROM settings");
+      await pool.query("DELETE FROM songs");
+
+      res.json({ success: true });
+
+    } catch (err) {
+      console.error(
+        "DELETE ALL CONTENT ERROR:",
+        err
+      );
+
+      res.status(500).json({
+        error: "Failed to delete content"
+      });
+    }
+});
+
+app.get("/ping", (req, res) => {
+  res.status(200).send("OK");
+});
+
 app.get("/api/songs", requireLogin, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM songs ORDER BY id DESC");
 
     const songsWithUrls = await Promise.all(
       result.rows.map(async (s) => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        audioUrl: await getFileUrl(s.audio_url)
+  id: s.id,
+  title: s.title,
+  artist: s.artist,
+  genre: s.genre,
+  album: s.album,
+  mood: s.mood,
+  year: s.year,
+  lyrics: s.lyrics,
+  audioUrl: await getFileUrl(s.audio_url),
+  coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null
       }))
     );
 
@@ -411,6 +534,46 @@ app.get("/api/songs", requireLogin, async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/songs/:id/download", requireLogin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM songs WHERE id = $1",
+      [req.params.id]
+    );
+
+    const song = result.rows[0];
+
+    if (!song) {
+      return res.status(404).send("Song not found");
+    }
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.B2_BUCKET_NAME,
+      Key: song.audio_url,
+    });
+
+    const file = await b2.send(command);
+
+    const filename = `${song.title || "song"}.mp3`;
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename.replace(/"/g, "")}"`
+    );
+
+    res.setHeader(
+      "Content-Type",
+      file.ContentType || "audio/mpeg"
+    );
+
+    file.Body.pipe(res);
+
+  } catch (err) {
+    console.error("DOWNLOAD ERROR:", err);
+    res.status(500).send("Download failed");
   }
 });
 
@@ -425,6 +588,81 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
     for (const file of req.files) {
       const fileKey = `songs/${Date.now()}-${file.originalname}`;
 
+let metadata = {};
+
+try {
+  metadata = await mm.parseBuffer(file.buffer, file.mimetype);
+} catch (err) {
+
+  console.warn("Could not read metadata:", file.originalname);
+}
+
+const title =
+  metadata.common?.title || file.originalname;
+
+const artist =
+  metadata.common?.artist || "Unknown";
+
+let genre =
+  metadata.common?.genre?.[0] || null;
+
+if (!genre) {
+  genre = await fetchGenreFromITunes({
+    title,
+    artist
+  });
+}
+
+if (!genre) {
+  genre = "unknown";
+}
+
+const album =
+  metadata.common?.album || null;
+
+const duration =
+  metadata.format?.duration || null;
+    let coverKey = null;
+
+let lyrics = null;
+
+const year =
+  metadata.common?.year?.toString() || null;
+
+try {
+  lyrics = await fetchLyrics({
+    title,
+    artist,
+    album,
+    genre,
+    duration,
+    year
+  });
+} catch (err) {
+  console.warn(
+    "Lyrics fetch failed:",
+    err.message
+  );
+}
+
+const picture = metadata.common?.picture?.[0];
+
+if (picture) {
+  const imageExt =
+    picture.format === "image/png" ? "png" : "jpg";
+
+  coverKey = `covers/${Date.now()}-${file.originalname}.${imageExt}`;
+
+  await b2.send(
+    new PutObjectCommand({
+      Bucket: process.env.B2_BUCKET_NAME,
+      Key: coverKey,
+      Body: picture.data,
+      ContentType: picture.format,
+    })
+  );
+}
+
       await b2.send(
         new PutObjectCommand({
           Bucket: process.env.B2_BUCKET_NAME,
@@ -435,9 +673,11 @@ app.post("/api/upload-files", requireAdmin, upload.array("songs"), async (req, r
       );
 
       await pool.query(
-        "INSERT INTO songs (title, artist, audio_url) VALUES ($1, $2, $3)",
-        [file.originalname, "Unknown", fileKey]
-      );
+  `INSERT INTO songs 
+   (title, artist, audio_url, genre, album, duration, cover_url, lyrics, year)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+  [title, artist, fileKey, genre, album, duration, coverKey, lyrics, year]
+);
 
       await addNotification("SONG_UPLOADED", `Uploaded: ${file.originalname}`);
     }
@@ -563,38 +803,119 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
    ✅ ADDED: SMART SEARCH
 ========================= */
 app.get("/api/smart-search", requireLogin, async (req, res) => {
-  const q = (req.query.q || "").toLowerCase();
+  const q = (req.query.q || "").trim();
 
-  try {
-    const result = await pool.query(
-      "SELECT * FROM songs WHERE LOWER(title) LIKE $1 OR LOWER(artist) LIKE $1",
-      [`%${q}%`]
-    );
+  if (!q) {
 
-    const songs = result.rows;
-
-    const songsWithUrls = await Promise.all(
-      songs.map(async (s) => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        audioUrl: await getFileUrl(s.audio_url)
-      }))
-    );
-
-    res.json({
-      playlist: {
-        name: `Created for ${req.session.user.firstName} - ${q}`,
-        query: q,
-        songs: songsWithUrls,
-        generated: true
-      }
+    return res.json({
+      playlists: [],
+      songs: []
     });
-
-  } catch (err) {
-    res.status(500).json({ error: "Smart search failed" });
   }
+
+  const search = `%${q}%`;
+
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM songs
+   WHERE
+  LOWER(COALESCE(title, '')) LIKE LOWER($1)
+  OR LOWER(COALESCE(artist, '')) LIKE LOWER($1)
+  OR LOWER(COALESCE(genre, '')) LIKE LOWER($1)
+  OR LOWER(COALESCE(album, '')) LIKE LOWER($1)
+    ORDER BY id DESC
+    LIMIT 50
+    `,
+    [search]
+  );
+
+  const rows = result.rows;
+
+  async function hydrateSong(s) {
+    return {
+      id: s.id,
+      title: s.title,
+      artist: s.artist,
+      genre: s.genre,
+      album: s.album,
+      mood: s.mood,
+      lyrics: s.lyrics,
+      year: s.year,
+      audioUrl: await getFileUrl(s.audio_url),
+      coverUrl: s.cover_url
+        ? await getFileUrl(s.cover_url)
+        : null
+    };
+  }
+
+  const songs = await Promise.all(
+    rows.map(hydrateSong)
+  );
+
+  const playlists = [];
+
+  const artistMatches = rows.filter(
+    s =>
+      s.artist &&
+      s.artist.toLowerCase().includes(q.toLowerCase())
+  );
+
+  if (artistMatches.length) {
+    playlists.push({
+      name: `${artistMatches[0].artist} Mix`,
+      type: "artist",
+      songs: await Promise.all(
+        artistMatches.map(hydrateSong)
+      )
+    });
+  }
+
+  const genreMatches = rows.filter(
+    s =>
+      s.genre &&
+      s.genre.toLowerCase().includes(q.toLowerCase())
+  );
+
+  if (genreMatches.length) {
+    playlists.push({
+      name: `${genreMatches[0].genre} Mix`,
+      type: "genre",
+      songs: await Promise.all(
+        genreMatches.map(hydrateSong)
+      )
+    });
+  }
+
+  const albumMatches = rows.filter(
+    s =>
+      s.album &&
+      s.album.toLowerCase().includes(q.toLowerCase())
+  );
+
+  if (albumMatches.length) {
+    playlists.push({
+      name: `${albumMatches[0].album} Mix`,
+      type: "album",
+      songs: await Promise.all(
+        albumMatches.map(hydrateSong)
+      )
+    });
+  }
+
+  if (!playlists.length && !songs.length) {
+  await addNotification(
+    "SEARCH_MISS",
+    `${req.session.user.firstName} ${req.session.user.lastName} searched for "${q}" but nothing was found`
+  );
+}
+
+  res.json({
+    playlists,
+    songs
+  });
 });
+
 
 /* =========================
    ✅ ADDED: SAVE PLAYLIST
@@ -651,9 +972,13 @@ app.get("/api/playlists", requireLogin, async (req, res) => {
 app.get("/api/playlists/:id", requireLogin, async (req, res) => {
   try {
     const playlist = await pool.query(
-      "SELECT * FROM playlists WHERE id = $1",
-      [req.params.id]
+      "SELECT * FROM playlists WHERE id = $1 AND user_id = $2",
+      [req.params.id, req.session.user.id]
     );
+
+    if (!playlist.rows[0]) {
+      return res.status(404).json({ error: "Playlist not found" });
+    }
 
     const songs = await pool.query(
       `SELECT songs.* FROM songs
@@ -667,7 +992,14 @@ app.get("/api/playlists/:id", requireLogin, async (req, res) => {
         id: s.id,
         title: s.title,
         artist: s.artist,
-        audioUrl: await getFileUrl(s.audio_url)
+        genre: s.genre,
+        album: s.album,
+        mood: s.mood,
+        lyrics: s.lyrics,
+        year: s.year,
+        audioUrl: await getFileUrl(s.audio_url),
+        coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null,
+      
       }))
     );
 
@@ -688,9 +1020,13 @@ app.get("/api/search", requireLogin, async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT * FROM songs WHERE LOWER(title) LIKE $1 OR LOWER(artist) LIKE $1",
-      [`%${q}%`]
-    );
+  `
+  SELECT *
+  FROM songs
+  ORDER BY id DESC
+  LIMIT 500
+  `
+);
 
     const songs = result.rows;
 
@@ -699,7 +1035,13 @@ app.get("/api/search", requireLogin, async (req, res) => {
         id: s.id,
         title: s.title,
         artist: s.artist,
-        audioUrl: await getFileUrl(s.audio_url)
+        genre: s.genre,
+        album: s.album,
+        mood: s.mood,
+        lyrics: s.lyrics,
+        year: s.year,
+        audioUrl: await getFileUrl(s.audio_url),
+        coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null
       }))
     );
 
@@ -759,3 +1101,4 @@ async function startServer() {
 
 const PORT = process.env.PORT || 3000;
 startServer();
+
