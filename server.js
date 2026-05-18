@@ -200,6 +200,8 @@ await pool.query(`
     PRIMARY KEY (playlist_id, song_id)
   )
 `);
+
+
 }
 
 /* ---------------- HELPERS ---------------- */
@@ -529,6 +531,64 @@ app.post("/api/profile-picture", requireLogin, upload.single("image"), async (re
   }
 });
 
+app.get("/api/library", requireLogin, async (req, res) => {
+  const result = await pool.query(
+    `
+    SELECT songs.*
+    FROM songs
+    JOIN user_library ON songs.id = user_library.song_id
+    WHERE user_library.user_id = $1
+    ORDER BY songs.title ASC
+    `,
+    [req.session.user.id]
+  );
+
+  const songs = await Promise.all(
+    result.rows.map(async s => ({
+      id: s.id,
+      title: s.title,
+      artist: s.artist,
+      genre: s.genre,
+      album: s.album,
+      year: s.year,
+      lyrics: s.lyrics,
+      audioUrl: await getFileUrl(s.audio_url),
+      coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null
+    }))
+  );
+
+  res.json({ songs });
+});
+
+app.post("/api/library/add", requireLogin, async (req, res) => {
+  const { songId } = req.body;
+
+  await pool.query(
+    `
+    INSERT INTO user_library (user_id, song_id)
+    VALUES ($1, $2)
+    ON CONFLICT DO NOTHING
+    `,
+    [req.session.user.id, songId]
+  );
+
+  res.json({ success: true });
+});
+
+app.post("/api/library/remove", requireLogin, async (req, res) => {
+  const { songId } = req.body;
+
+  await pool.query(
+    `
+    DELETE FROM user_library
+    WHERE user_id = $1 AND song_id = $2
+    `,
+    [req.session.user.id, songId]
+  );
+
+  res.json({ success: true });
+});
+
 /* ---------------- USERS ---------------- */
 
 app.delete("/api/users/:id", requireAdmin, async (req, res) => {
@@ -619,15 +679,6 @@ app.get("/api/songs", requireLogin, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-// TODO: API endpoint stubs
-// POST /api/library/add
-// POST /api/library/remove
-// GET /api/library
-//
-// POST /api/custom-playlists
-// GET /api/custom-playlists
-// POST /api/custom-playlists/:id/songs
 
 app.get("/api/songs/:id/download", requireLogin, async (req, res) => {
   try {
