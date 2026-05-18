@@ -1453,7 +1453,7 @@ function initMoreSheet() {
   songInfoModal?.classList.remove("hidden");
 });
 
-closeSongInfo?.addEventListener("click", () => {
+closeInfoBtn?.addEventListener("click", () => {
   songInfoModal?.classList.add("hidden");
 });
 
@@ -1490,4 +1490,89 @@ songInfoModal?.addEventListener("click", (e) => {
     renderQueue();
     moreSheet?.classList.add("hidden");
   });
+}
+
+async function loadLibrary() {
+  const res = await apiFetch("/api/library");
+
+  state.library = res?.songs || [];
+
+  renderLibrary();
+}
+
+async function loadUser() {
+  try {
+
+    const res = await fetch("/api/me");
+
+    const data = await res.json();
+
+    const userBox =
+      document.getElementById("userBox");
+
+    if (userBox && data.user) {
+      userBox.innerText =
+        `${data.user.firstName} ${data.user.lastName}`;
+    }
+
+    const profileAvatar =
+      document.getElementById("profileAvatar");
+
+    if (
+      profileAvatar &&
+      data.user?.profilePicture
+    ) {
+
+      profileAvatar.innerHTML = "";
+
+      profileAvatar.style.backgroundImage =
+        `url('${data.user.profilePicture}')`;
+
+      profileAvatar.style.backgroundSize =
+        "cover";
+
+      profileAvatar.style.backgroundPosition =
+        "center";
+    }
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+document.addEventListener("click", (e) => {
+
+  if (
+    !e.target.closest(".song-menu") &&
+    !e.target.closest(".song-more-btn")
+  ) {
+    closeSongMenu();
+  }
+});
+
+if (document.readyState === "loading") {
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+      initUI();
+      initMoreSheet();
+      initProfileMenu();
+      initCustomPlaylists();
+
+      loadUser();
+      loadLibrary();
+    }
+  );
+
+} else {
+
+  initUI();
+  initMoreSheet();
+  initProfileMenu();
+  initCustomPlaylists();
+
+  loadUser();
+  loadLibrary();
 }
