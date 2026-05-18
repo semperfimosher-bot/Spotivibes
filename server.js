@@ -175,6 +175,31 @@ async function initDB() {
       PRIMARY KEY (playlist_id, song_id)
     )
   `);
+
+  await pool.query(`
+  CREATE TABLE IF NOT EXISTS user_library (
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    song_id INT REFERENCES songs(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, song_id)
+  )
+`);
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS custom_playlists (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`);
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS custom_playlist_songs (
+    playlist_id INT REFERENCES custom_playlists(id) ON DELETE CASCADE,
+    song_id INT REFERENCES songs(id) ON DELETE CASCADE,
+    PRIMARY KEY (playlist_id, song_id)
+  )
+`);
 }
 
 /* ---------------- HELPERS ---------------- */
@@ -441,8 +466,12 @@ app.post("/api/logout", (req, res) => {
 });
 
 app.get("/api/me", async (req, res) => {
+
   if (!req.session?.user) {
-    return res.json({ loggedIn: false, user: null });
+    return res.json({
+      loggedIn: false,
+      user: null
+    });
   }
 
   const result = await pool.query(
@@ -460,9 +489,11 @@ app.get("/api/me", async (req, res) => {
       firstName: user.first_name,
       lastName: user.last_name,
       role: user.role,
-      profilePicture: user.profile_picture
-        ? await getFileUrl(user.profile_picture)
-        : null
+
+      profilePicture:
+        user.profile_picture
+          ? await getFileUrl(user.profile_picture)
+          : null
     }
   });
 });
@@ -483,9 +514,9 @@ app.post("/api/profile-picture", requireLogin, upload.single("image"), async (re
     }));
 
     await pool.query(
-      "UPDATE users SET profile_picture = $1 WHERE id = $2",
-      [key, req.session.user.id]
-    );
+  "UPDATE users SET profile_picture = $1 WHERE id = $2",
+  [key, req.session.user.id]
+);
 
     res.json({
       success: true,
@@ -588,6 +619,15 @@ app.get("/api/songs", requireLogin, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// TODO: API endpoint stubs
+// POST /api/library/add
+// POST /api/library/remove
+// GET /api/library
+//
+// POST /api/custom-playlists
+// GET /api/custom-playlists
+// POST /api/custom-playlists/:id/songs
 
 app.get("/api/songs/:id/download", requireLogin, async (req, res) => {
   try {
@@ -908,7 +948,7 @@ app.get("/api/smart-search", requireLogin, async (req, res) => {
           ? await getFileUrl(s.cover_url)
           : null
       };
-      }
+    }
 
     const songs = await Promise.all(
       rows.map(hydrateSong)

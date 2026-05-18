@@ -113,37 +113,6 @@ mobileSearchBar?.addEventListener(
       });
     }
   });
-
-function closeModal() {
-  modal?.classList.add("hidden");
-}
-
-profilePicInput?.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  const formData = new FormData();
-  formData.append("image", file);
-
-  const res = await fetch("/api/profile-picture", {
-    method: "POST",
-    body: formData
-  });
-
-  const data = await res.json();
-
-  if (!res.ok) {
-    alert(data.error || "Upload failed");
-    return;
-  }
-
-  if (data.profilePicture && profileAvatar) {
-    profileAvatar.innerText = "";
-    profileAvatar.style.backgroundImage = `url('${data.profilePicture}')`;
-    profileAvatar.style.backgroundSize = "cover";
-    profileAvatar.style.backgroundPosition = "center";
-  }
-});
 }
 
 // ==========================
@@ -1351,6 +1320,13 @@ function initProfileMenu() {
 
       const data = await res.json();
 
+      const userBox = document.getElementById("userBox");
+
+if (userBox && data.user) {
+  userBox.innerText =
+    `${data.user.firstName} ${data.user.lastName}`;
+}
+
       if (!res.ok) {
         alert(data.error || "Upload failed");
         return;
@@ -1531,6 +1507,46 @@ songInfoModal?.addEventListener("click", (e) => {
   });
 }
 
+async function loadUser() {
+
+  try {
+
+    const res = await fetch("/api/me");
+
+    const data = await res.json();
+
+    const userBox = document.getElementById("userBox");
+
+if (userBox && data.user) {
+  userBox.innerText =
+    `${data.user.firstName} ${data.user.lastName}`;
+}
+
+    const profileAvatar =
+      document.getElementById("profileAvatar");
+
+    if (
+      profileAvatar &&
+      data.user?.profilePicture
+    ) {
+
+      profileAvatar.innerHTML = "";
+
+      profileAvatar.style.backgroundImage =
+        `url('${data.user.profilePicture}')`;
+
+      profileAvatar.style.backgroundSize =
+        "cover";
+
+      profileAvatar.style.backgroundPosition =
+        "center";
+    }
+
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 // ==========================
 // BOOTSTRAP
 // ==========================
@@ -1542,6 +1558,7 @@ if (document.readyState === "loading") {
     initMoreSheet();
     initProfileMenu();
     initCustomPlaylists();
+    loadUser();
 
   });
 
@@ -1551,6 +1568,7 @@ if (document.readyState === "loading") {
   initMoreSheet();
   initProfileMenu();
   initCustomPlaylists();
+  loadUser();
 }
 
 /* =========================
