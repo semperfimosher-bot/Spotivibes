@@ -444,53 +444,51 @@ function renderPlaylistSongs(playlist) {
 // COMPONENTS
 // ==========================
 function createGeneratedPlaylistCard(playlist) {
+
   const row = document.createElement("div");
+
   row.className = "row generated-playlist-row";
 
   row.innerHTML = `
-   ${renderPlaylistArt(playlist)} 
-
-    <div style="flex:1">
-      <div style="color:white">
-        ${playlist.name}
-      </div>
-
-      <div style="color:#b3b3b3;font-size:12px">
-        ${playlist.type} playlist · ${playlist.songs.length} songs
-      </div>
-    </div>
-
-    <button class="playlist-add-btn">
-      Add
-    </button>
+    ...
   `;
 
   row.addEventListener("click", () => {
     renderPlaylistSongs(playlist);
   });
-}
 
-  const addBtn = row.querySelector(".playlist-add-btn");
+  const addBtn =
+    row.querySelector(".playlist-add-btn");
 
   addBtn?.addEventListener("click", async (e) => {
-  e.stopPropagation();
 
-  const res = await apiFetch("/api/playlists/save", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: playlist.name,
-      query: playlist.name,
-      songs: playlist.songs
-    })
+    e.stopPropagation();
+
+    const res = await apiFetch(
+      "/api/playlists/save",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: playlist.name,
+          query: playlist.name,
+          songs: playlist.songs
+        })
+      }
+    );
+
+    if (res?.success) {
+
+      await loadSavedPlaylists();
+
+      addBtn.innerText = "Added";
+    }
   });
 
-  if (res?.success) {
-    await loadSavedPlaylists();
-    addBtn.innerText = "Added";
-  }
-});
-
+  return row;
+}
 function renderPlaylistArt(playlist) {
   const covers = getPlaylistArt(playlist);
 
@@ -1351,11 +1349,14 @@ if (userBox && data.user) {
 
 function initCustomPlaylists() {
 
-  const btn =
-    document.getElementById("createPlaylistBtn");
+  const buttons = [
+  document.getElementById("createPlaylistBtn"),
+  document.getElementById("mobileCreatePlaylistBtn")
+].filter(Boolean);
 
-  if (!btn) return;
+ if (!buttons.length) return;
 
+buttons.forEach(btn => {
   btn.addEventListener("click", () => {
 
     const modal =
@@ -1415,6 +1416,7 @@ function initCustomPlaylists() {
       closeModal();
     };
   });
+});
 }
 
 function initMoreSheet() {
@@ -1577,12 +1579,17 @@ if (document.readyState === "loading") {
     () => {
 
       initUI();
+
       initMoreSheet();
+
       initProfileMenu();
+
       initCustomPlaylists();
 
       loadUser();
+
       loadLibrary();
+
       loadSavedPlaylists();
     }
   );
@@ -1590,11 +1597,16 @@ if (document.readyState === "loading") {
 } else {
 
   initUI();
+
   initMoreSheet();
+
   initProfileMenu();
+
   initCustomPlaylists();
 
   loadUser();
+
   loadLibrary();
+
   loadSavedPlaylists();
 }

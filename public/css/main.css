@@ -1551,4 +1551,19 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
   box-shadow:
     0 0 6px rgba(0,76,255,0.75);
 }
+
+#mobileLibraryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 14px;
+}
+
+#mobileCreatePlaylistBtn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+}
 }
