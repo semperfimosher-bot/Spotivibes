@@ -139,6 +139,7 @@ async function initDB() {
   await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS mood TEXT`);
   await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS year TEXT`);
   await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS year TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS notifications (
@@ -430,20 +431,71 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.post("/api/logout", (req, res) => {
-  req.session.destroy(() => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Logout error:", err);
+      return res.status(500).json({ error: "Logout failed" });
+    }
     res.json({ success: true });
   });
 });
 
-app.get("/api/me", (req, res) => {
-  if (!req.session || !req.session.user) {
+app.get("/api/me", async (req, res) => {
+  if (!req.session?.user) {
     return res.json({ loggedIn: false, user: null });
   }
 
+  const result = await pool.query(
+    "SELECT * FROM users WHERE id = $1",
+    [req.session.user.id]
+  );
+
+  const user = result.rows[0];
+
   res.json({
     loggedIn: true,
-    user: req.session.user
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      role: user.role,
+      profilePicture: user.profile_picture
+        ? await getFileUrl(user.profile_picture)
+        : null
+    }
   });
+});
+
+app.post("/api/profile-picture", requireLogin, upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No image uploaded" });
+    }
+
+    const key = `profiles/${Date.now()}-${req.file.originalname}`;
+
+    await b2.send(new PutObjectCommand({
+      Bucket: process.env.B2_BUCKET_NAME,
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype
+    }));
+
+    await pool.query(
+      "UPDATE users SET profile_picture = $1 WHERE id = $2",
+      [key, req.session.user.id]
+    );
+
+    res.json({
+      success: true,
+      profilePicture: await getFileUrl(key)
+    });
+
+  } catch (err) {
+    console.error("PROFILE PIC ERROR:", err);
+    res.status(500).json({ error: "Upload failed" });
+  }
 });
 
 /* ---------------- USERS ---------------- */
@@ -568,6 +620,15 @@ app.get("/api/songs/:id/download", requireLogin, async (req, res) => {
       "Content-Type",
       file.ContentType || "audio/mpeg"
     );
+
+    file.Body.on("error", (err) => {
+      console.error("Stream error:", err);
+      if (!res.headersSent) {
+        res.status(500).send("Download failed");
+      } else {
+        res.destroy();
+      }
+    });
 
     file.Body.pipe(res);
 
@@ -803,117 +864,121 @@ app.delete("/api/songs/:id", requireAdmin, async (req, res) => {
    ✅ ADDED: SMART SEARCH
 ========================= */
 app.get("/api/smart-search", requireLogin, async (req, res) => {
-  const q = (req.query.q || "").trim();
+  try {
+    const q = (req.query.q || "").trim();
 
-  if (!q) {
+    if (!q) {
+      return res.json({
+        playlists: [],
+        songs: []
+      });
+    }
 
-    return res.json({
-      playlists: [],
-      songs: []
+    const search = `%${q}%`;
+
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM songs
+     WHERE
+    LOWER(COALESCE(title, '')) LIKE LOWER($1)
+    OR LOWER(COALESCE(artist, '')) LIKE LOWER($1)
+    OR LOWER(COALESCE(genre, '')) LIKE LOWER($1)
+    OR LOWER(COALESCE(album, '')) LIKE LOWER($1)
+      ORDER BY id DESC
+      LIMIT 50
+      `,
+      [search]
+    );
+
+    const rows = result.rows;
+
+    async function hydrateSong(s) {
+      return {
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        genre: s.genre,
+        album: s.album,
+        mood: s.mood,
+        lyrics: s.lyrics,
+        year: s.year,
+        audioUrl: await getFileUrl(s.audio_url),
+        coverUrl: s.cover_url
+          ? await getFileUrl(s.cover_url)
+          : null
+      };
+      }
+
+    const songs = await Promise.all(
+      rows.map(hydrateSong)
+    );
+
+    const playlists = [];
+
+    const artistMatches = rows.filter(
+      s =>
+        s.artist &&
+        s.artist.toLowerCase().includes(q.toLowerCase())
+    );
+
+    if (artistMatches.length) {
+      playlists.push({
+        name: `${artistMatches[0].artist} Mix`,
+        type: "artist",
+        songs: await Promise.all(
+          artistMatches.map(hydrateSong)
+        )
+      });
+    }
+
+    const genreMatches = rows.filter(
+      s =>
+        s.genre &&
+        s.genre.toLowerCase().includes(q.toLowerCase())
+    );
+
+    if (genreMatches.length) {
+      playlists.push({
+        name: `${genreMatches[0].genre} Mix`,
+        type: "genre",
+        songs: await Promise.all(
+          genreMatches.map(hydrateSong)
+        )
+      });
+    }
+
+    const albumMatches = rows.filter(
+      s =>
+        s.album &&
+        s.album.toLowerCase().includes(q.toLowerCase())
+    );
+
+    if (albumMatches.length) {
+      playlists.push({
+        name: `${albumMatches[0].album} Mix`,
+        type: "album",
+        songs: await Promise.all(
+          albumMatches.map(hydrateSong)
+        )
+      });
+    }
+
+    if (!playlists.length && !songs.length) {
+      await addNotification(
+        "SEARCH_MISS",
+        `${req.session.user.firstName} ${req.session.user.lastName} searched for "${q}" but nothing was found`
+      );
+    }
+
+    res.json({
+      playlists,
+      songs
     });
+  } catch (err) {
+    console.error("SMART SEARCH ERROR:", err);
+    res.status(500).json({ error: "Search failed" });
   }
-
-  const search = `%${q}%`;
-
-  const result = await pool.query(
-    `
-    SELECT *
-    FROM songs
-   WHERE
-  LOWER(COALESCE(title, '')) LIKE LOWER($1)
-  OR LOWER(COALESCE(artist, '')) LIKE LOWER($1)
-  OR LOWER(COALESCE(genre, '')) LIKE LOWER($1)
-  OR LOWER(COALESCE(album, '')) LIKE LOWER($1)
-    ORDER BY id DESC
-    LIMIT 50
-    `,
-    [search]
-  );
-
-  const rows = result.rows;
-
-  async function hydrateSong(s) {
-    return {
-      id: s.id,
-      title: s.title,
-      artist: s.artist,
-      genre: s.genre,
-      album: s.album,
-      mood: s.mood,
-      lyrics: s.lyrics,
-      year: s.year,
-      audioUrl: await getFileUrl(s.audio_url),
-      coverUrl: s.cover_url
-        ? await getFileUrl(s.cover_url)
-        : null
-    };
-  }
-
-  const songs = await Promise.all(
-    rows.map(hydrateSong)
-  );
-
-  const playlists = [];
-
-  const artistMatches = rows.filter(
-    s =>
-      s.artist &&
-      s.artist.toLowerCase().includes(q.toLowerCase())
-  );
-
-  if (artistMatches.length) {
-    playlists.push({
-      name: `${artistMatches[0].artist} Mix`,
-      type: "artist",
-      songs: await Promise.all(
-        artistMatches.map(hydrateSong)
-      )
-    });
-  }
-
-  const genreMatches = rows.filter(
-    s =>
-      s.genre &&
-      s.genre.toLowerCase().includes(q.toLowerCase())
-  );
-
-  if (genreMatches.length) {
-    playlists.push({
-      name: `${genreMatches[0].genre} Mix`,
-      type: "genre",
-      songs: await Promise.all(
-        genreMatches.map(hydrateSong)
-      )
-    });
-  }
-
-  const albumMatches = rows.filter(
-    s =>
-      s.album &&
-      s.album.toLowerCase().includes(q.toLowerCase())
-  );
-
-  if (albumMatches.length) {
-    playlists.push({
-      name: `${albumMatches[0].album} Mix`,
-      type: "album",
-      songs: await Promise.all(
-        albumMatches.map(hydrateSong)
-      )
-    });
-  }
-
-  if (!playlists.length && !songs.length) {
-  await addNotification(
-    "SEARCH_MISS",
-    `${req.session.user.firstName} ${req.session.user.lastName} searched for "${q}" but nothing was found`
-  );
-}
-
-  res.json({
-    playlists,
-    songs
-  });
 });
 
 
@@ -1080,8 +1145,9 @@ app.use((err, req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
   if (!res.headersSent) {
-    return res.status(500).json({ error: "Internal server error" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

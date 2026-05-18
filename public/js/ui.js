@@ -114,61 +114,36 @@ mobileSearchBar?.addEventListener(
     }
   });
 
-  function initCustomPlaylists() {
-  const btn = document.getElementById("createPlaylistBtn");
-
-  btn?.addEventListener("click", () => {
-   const modal =
-  document.getElementById("playlistModal");
-
-const input =
-  document.getElementById("playlistNameInput");
-
-const saveBtn =
-  document.getElementById("savePlaylistBtn");
-
-const cancelBtn =
-  document.getElementById("cancelPlaylistBtn");
-
-modal?.classList.remove("hidden");
-
-input.value = "";
-input.focus();
-
 function closeModal() {
   modal?.classList.add("hidden");
 }
 
-cancelBtn.onclick = closeModal;
+profilePicInput?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-saveBtn.onclick = () => {
+  const formData = new FormData();
+  formData.append("image", file);
 
-  const name = input.value.trim();
-
-  if (!name) return;
-
-  const playlist = {
-    name,
-    songs: []
-  };
-
-  state.customPlaylists.push(playlist);
-
-  localStorage.setItem(
-    "customPlaylists",
-    JSON.stringify(state.customPlaylists)
-  );
-
-  renderLibrary();
-
-  closeModal();
-};
+  const res = await fetch("/api/profile-picture", {
+    method: "POST",
+    body: formData
   });
-}
 
-  initProfileMenu();
-initMoreSheet();
-initCustomPlaylists();
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.error || "Upload failed");
+    return;
+  }
+
+  if (data.profilePicture && profileAvatar) {
+    profileAvatar.innerText = "";
+    profileAvatar.style.backgroundImage = `url('${data.profilePicture}')`;
+    profileAvatar.style.backgroundSize = "cover";
+    profileAvatar.style.backgroundPosition = "center";
+  }
+});
 }
 
 // ==========================
@@ -1148,6 +1123,7 @@ function highlightCurrentSong() {
       }
     });
 }
+
 function openSongMenu(song, button) {
   closeSongMenu();
 
@@ -1155,14 +1131,10 @@ function openSongMenu(song, button) {
   menu.className = "song-menu";
 
   const inLibrary = state.library.some(
-  s => String(s.id) === String(song.id)
-);
-
-const playlists = (state.customPlaylists || []).filter(
-  p => !p.songs.some(
     s => String(s.id) === String(song.id)
-  )
-);
+  );
+
+  const playlists = state.customPlaylists || [];
 
   menu.innerHTML = `
     <button class="downloadSongBtn">Download MP3</button>
@@ -1173,27 +1145,19 @@ const playlists = (state.customPlaylists || []).filter(
         : `<button class="addLibraryBtn">Add to Library</button>`
     }
 
-    
-  ${
-  playlists.length
-    ? `
-      <button class="addToPlaylistBtn">
-        Add to Playlist
-      </button>
+    <button class="addToPlaylistBtn">Add to Playlist</button>
 
-      <div class="playlist-picker hidden">
-        ${playlists.map(p => `
-          <button
-            class="playlist-choice"
-            data-name="${p.name}"
-          >
-            ${p.name}
-          </button>
-        `).join("")}
-      </div>
-    `
-    : ""
-}
+    <div class="playlist-picker hidden">
+      ${
+        playlists.length
+          ? playlists.map(p => `
+              <button class="playlist-choice" data-name="${p.name}">
+                ${p.name}
+              </button>
+            `).join("")
+          : `<div style="color:#b3b3b3;padding:8px">No custom playlists yet</div>`
+      }
+    </div>
   `;
 
   document.body.appendChild(menu);
@@ -1202,60 +1166,53 @@ const playlists = (state.customPlaylists || []).filter(
   menu.style.top = `${rect.bottom + 6}px`;
   menu.style.left = `${rect.left}px`;
 
-  menu.querySelector(".downloadSongBtn")
-    ?.addEventListener("click", () => {
-      downloadSong(song);
-      closeSongMenu();
-    });
+  menu.querySelector(".downloadSongBtn")?.addEventListener("click", () => {
+    downloadSong(song);
+    closeSongMenu();
+  });
 
-  menu.querySelector(".addLibraryBtn")
-    ?.addEventListener("click", () => {
-      addSongToLibrary(song);
-      closeSongMenu();
-    });
+  menu.querySelector(".addLibraryBtn")?.addEventListener("click", () => {
+    addSongToLibrary(song);
+    closeSongMenu();
+  });
 
-  menu.querySelector(".removeLibraryBtn")
-    ?.addEventListener("click", () => {
-      removeSongFromLibrary(song);
-      closeSongMenu();
-    });
+  menu.querySelector(".removeLibraryBtn")?.addEventListener("click", () => {
+    removeSongFromLibrary(song);
+    closeSongMenu();
+  });
 
   const picker = menu.querySelector(".playlist-picker");
 
-  menu.querySelector(".addToPlaylistBtn")
-    ?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      picker?.classList.toggle("hidden");
+  menu.querySelector(".addToPlaylistBtn")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    picker?.classList.toggle("hidden");
+  });
+
+  menu.querySelectorAll(".playlist-choice").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const playlist = state.customPlaylists.find(
+        p => p.name === btn.dataset.name
+      );
+
+      if (!playlist) return;
+
+      const exists = playlist.songs.some(
+        s => String(s.id) === String(song.id)
+      );
+
+      if (!exists) {
+        playlist.songs.push(song);
+      }
+
+      localStorage.setItem(
+        "customPlaylists",
+        JSON.stringify(state.customPlaylists)
+      );
+
+      renderLibrary();
+      closeSongMenu();
     });
-
-  menu.querySelectorAll(".playlist-choice")
-    .forEach(btn => {
-      btn.addEventListener("click", () => {
-        const playlistName = btn.dataset.name;
-
-        const playlist = state.customPlaylists.find(
-          p => p.name === playlistName
-        );
-
-        if (!playlist) return;
-
-        const exists = playlist.songs.some(
-          s => String(s.id) === String(song.id)
-        );
-
-        if (!exists) {
-          playlist.songs.push(song);
-        }
-
-        localStorage.setItem(
-          "customPlaylists",
-          JSON.stringify(state.customPlaylists)
-        );
-
-        renderLibrary();
-        closeSongMenu();
-      });
-    });
+  });
 }
 
 function closeSongMenu() {
@@ -1308,41 +1265,198 @@ document.addEventListener("click", (e) => {
 });
 
 function initProfileMenu() {
-  const profileAvatar = document.getElementById("profileAvatar");
-  const profileMenu = document.getElementById("profileMenu");
-  const profileLogoutBtn = document.getElementById("profileLogoutBtn");
-  const uploadProfilePicBtn = document.getElementById("uploadProfilePicBtn");
-  const profilePicInput = document.getElementById("profilePicInput");
-  const openStatsBtn = document.getElementById("openStatsBtn");
 
-  profileAvatar?.addEventListener("click", (e) => {
+  const profileAvatar =
+    document.getElementById("profileAvatar");
+
+  const profileMenu =
+    document.getElementById("profileMenu");
+
+  const profileLogoutBtn =
+    document.getElementById("profileLogoutBtn");
+
+  const uploadProfilePicBtn =
+    document.getElementById("uploadProfilePicBtn");
+
+  const profilePicInput =
+    document.getElementById("profilePicInput");
+
+  const openStatsBtn =
+    document.getElementById("openStatsBtn");
+
+  if (!profileAvatar || !profileMenu) return;
+
+  // ==========================
+  // OPEN / CLOSE MENU
+  // ==========================
+
+  profileAvatar.addEventListener("click", (e) => {
     e.stopPropagation();
-    profileMenu?.classList.toggle("hidden");
+    profileMenu.classList.toggle("hidden");
   });
 
-  profileMenu?.addEventListener("click", (e) => {
+  profileMenu.addEventListener("click", (e) => {
     e.stopPropagation();
   });
 
   document.addEventListener("click", (e) => {
+
     if (
       e.target.closest("#profileAvatar") ||
       e.target.closest("#profileMenu")
-    ) return;
+    ) {
+      return;
+    }
 
-    profileMenu?.classList.add("hidden");
+    profileMenu.classList.add("hidden");
   });
 
+  // ==========================
+  // LOGOUT
+  // ==========================
+
   profileLogoutBtn?.addEventListener("click", logout);
+
+  // ==========================
+  // OPEN PROFILE PIC PICKER
+  // ==========================
 
   uploadProfilePicBtn?.addEventListener("click", () => {
     profilePicInput?.click();
   });
 
+  // ==========================
+  // PROFILE PIC UPLOAD
+  // ==========================
+
+  profilePicInput?.addEventListener("change", async (e) => {
+
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    const formData = new FormData();
+
+    formData.append("image", file);
+
+    try {
+
+      const res = await fetch(
+        "/api/profile-picture",
+        {
+          method: "POST",
+          body: formData
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || "Upload failed");
+        return;
+      }
+
+      if (data.profilePicture) {
+
+        profileAvatar.innerHTML = "";
+
+        profileAvatar.style.backgroundImage =
+          `url('${data.profilePicture}')`;
+
+        profileAvatar.style.backgroundSize =
+          "cover";
+
+        profileAvatar.style.backgroundPosition =
+          "center";
+      }
+
+    } catch (err) {
+
+      console.error(err);
+
+      alert("Upload failed");
+    }
+  });
+
+  // ==========================
+  // STATS
+  // ==========================
+
   openStatsBtn?.addEventListener("click", () => {
-    profileMenu?.classList.add("hidden");
+
+    profileMenu.classList.add("hidden");
+
     showView("stats");
+
     renderListeningStats();
+  });
+}
+
+function initCustomPlaylists() {
+
+  const btn =
+    document.getElementById("createPlaylistBtn");
+
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+
+    const modal =
+      document.getElementById("playlistModal");
+
+    const input =
+      document.getElementById("playlistNameInput");
+
+    const saveBtn =
+      document.getElementById("savePlaylistBtn");
+
+    const cancelBtn =
+      document.getElementById("cancelPlaylistBtn");
+
+    if (!modal || !input) return;
+
+    modal.classList.remove("hidden");
+
+    input.value = "";
+    input.focus();
+
+    function closeModal() {
+      modal.classList.add("hidden");
+    }
+
+    cancelBtn.onclick = closeModal;
+
+    saveBtn.onclick = () => {
+
+      const name = input.value.trim();
+
+      if (!name) return;
+
+      const exists = state.customPlaylists.some(
+        p => p.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (exists) {
+        alert("Playlist already exists");
+        return;
+      }
+
+      const playlist = {
+        name,
+        songs: []
+      };
+
+      state.customPlaylists.push(playlist);
+
+      localStorage.setItem(
+        "customPlaylists",
+        JSON.stringify(state.customPlaylists)
+      );
+
+      renderLibrary();
+
+      closeModal();
+    };
   });
 }
 
@@ -1417,26 +1531,26 @@ songInfoModal?.addEventListener("click", (e) => {
   });
 }
 
-  function toggleMoreSheet(e) {
-    e.stopPropagation();
-    moreSheet?.classList.toggle("hidden");
-  }
-
-  moreSheet?.addEventListener("click", (e) => {
-    e.stopPropagation();
-  });
-
-  document.addEventListener("click", () => {
-    moreSheet?.classList.add("hidden");
-  });
-
 // ==========================
 // BOOTSTRAP
 // ==========================
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initUI);
+
+  document.addEventListener("DOMContentLoaded", () => {
+
+    initUI();
+    initMoreSheet();
+    initProfileMenu();
+    initCustomPlaylists();
+
+  });
+
 } else {
+
   initUI();
+  initMoreSheet();
+  initProfileMenu();
+  initCustomPlaylists();
 }
 
 /* =========================
