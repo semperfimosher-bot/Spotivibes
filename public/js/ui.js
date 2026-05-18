@@ -468,32 +468,28 @@ function createGeneratedPlaylistCard(playlist) {
   row.addEventListener("click", () => {
     renderPlaylistSongs(playlist);
   });
+}
 
   const addBtn = row.querySelector(".playlist-add-btn");
 
-  addBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
+  addBtn?.addEventListener("click", async (e) => {
+  e.stopPropagation();
 
-    const exists = state.libraryPlaylists.some(
-      p => p.name === playlist.name
-    );
-
-    if (!exists) {
-      state.libraryPlaylists.push(playlist);
-
-      localStorage.setItem(
-        "libraryPlaylists",
-        JSON.stringify(state.libraryPlaylists)
-      );
-
-      renderLibrary();
-    }
-
-    addBtn.innerText = "Added";
+  const res = await apiFetch("/api/playlists/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: playlist.name,
+      query: playlist.name,
+      songs: playlist.songs
+    })
   });
 
-  return row;
-}
+  if (res?.success) {
+    await loadSavedPlaylists();
+    addBtn.innerText = "Added";
+  }
+});
 
 function renderPlaylistArt(playlist) {
   const covers = getPlaylistArt(playlist);
@@ -1500,6 +1496,30 @@ async function loadLibrary() {
   renderLibrary();
 }
 
+async function loadSavedPlaylists() {
+  const res = await apiFetch("/api/playlists");
+
+  if (!res?.playlists) return;
+
+  const fullPlaylists = [];
+
+  for (const p of res.playlists) {
+    const details = await apiFetch(`/api/playlists/${p.id}`);
+
+    if (details?.playlist && details?.songs) {
+      fullPlaylists.push({
+        id: details.playlist.id,
+        name: details.playlist.name,
+        type: details.playlist.is_generated ? "generated" : "playlist",
+        songs: details.songs
+      });
+    }
+  }
+
+  state.libraryPlaylists = fullPlaylists;
+
+  renderLibrary();
+}
 async function loadUser() {
   try {
 
@@ -1563,6 +1583,7 @@ if (document.readyState === "loading") {
 
       loadUser();
       loadLibrary();
+      loadSavedPlaylists();
     }
   );
 
@@ -1575,4 +1596,5 @@ if (document.readyState === "loading") {
 
   loadUser();
   loadLibrary();
+  loadSavedPlaylists();
 }
