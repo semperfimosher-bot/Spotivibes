@@ -3,17 +3,17 @@ window.SPOTIVIBES_CONFIG = {
 };
 
 async function loadConfig() {
-  try {
-    const configUrl =
-      window.location.hostname === "localhost"
-        ? "/config"
-        : "/config";
+  const isLocal =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
 
-    const res = await fetch(configUrl);
-    const data = await res.json();
-
-    window.SPOTIVIBES_CONFIG.API_BASE = data.apiBase || "";
-  } catch (err) {
-    console.error("Failed to load config:", err);
+  if (isLocal) {
+    window.SPOTIVIBES_CONFIG.API_BASE = "";
+    return;
   }
+
+  const res = await fetch("https://api.spotivibes.com/config");
+  const data = await res.json();
+
+  window.SPOTIVIBES_CONFIG.API_BASE = data.apiBase || "";
 }
