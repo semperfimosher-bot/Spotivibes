@@ -1,4 +1,6 @@
 window.addEventListener("DOMContentLoaded", async () => {
+  await loadConfig();
+
   await loadUser();
   await loadSongs();
   await loadBackground();
@@ -8,6 +10,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   restoreLastPlayback?.();
 
   document.getElementById("playBtn")?.addEventListener("click", togglePlay);
-  document.getElementById("nextBtn").addEventListener("click", nextSong);
-  document.getElementById("prevBtn").addEventListener("click", prevSong);
+  document.getElementById("nextBtn")?.addEventListener("click", nextSong);
+  document.getElementById("prevBtn")?.addEventListener("click", prevSong);
 });

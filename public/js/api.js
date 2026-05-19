@@ -1,9 +1,12 @@
+function getApiBase() {
+  return window.SPOTIVIBES_CONFIG?.API_BASE || "";
+}
 // =========================
 // GENERIC FETCH HELPER
 // =========================
 async function apiFetch(url, options = {}) {
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`${getApiBase()}${url}`, {
       credentials: "include",
       ...options,
     });
@@ -19,7 +22,6 @@ async function apiFetch(url, options = {}) {
     return null;
   }
 }
-
 // =========================
 // LOAD USER
 // =========================

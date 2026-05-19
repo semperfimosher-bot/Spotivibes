@@ -1,60 +1,31 @@
+require("dotenv").config();
+const cors = require("cors");
 const express = require("express");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
-const { Pool } = require("pg");
 const PgSession = require("connect-pg-simple")(session);
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
-const { z } = require("zod");
 const mm = require("music-metadata");
+const { requireLogin, requireAdmin } = require("./middleware/auth.middleware");
+const { registerSchema, loginSchema } = require("./utils/validators");
+const { b2, getFileUrl, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectVersionsCommand } = require("./services/storage.service");
+const { addNotification } = require("./services/notification.service");
+const { fetchGenreFromITunes } = require("./services/genre.service");
+const { fetchLyrics } = require("./services/lyrics.service");
+const configRoutes = require("./routes/config.routes");
 
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
-const {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-  ListObjectVersionsCommand
-} = require("@aws-sdk/client-s3");
-
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-
-const b2 = new S3Client({
-  region: "us-east-005",
-  endpoint: process.env.B2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.B2_KEY_ID,
-    secretAccessKey: process.env.B2_APP_KEY
-  },
-});
-
-async function getFileUrl(fileKey) {
-  if (!fileKey) return null;
-
-  const command = new GetObjectCommand({
-    Bucket: process.env.B2_BUCKET_NAME,
-    Key: fileKey,
-  });
-
-  return await getSignedUrl(b2, command, {
-    expiresIn: 60 * 60,
-  });
-}
-
 const app = express();
+app.use("/config", configRoutes);
 
 app.set("trust proxy", 1);
 
-/* ---------------- DATABASE (POSTGRES) ---------------- */
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+const pool = require("./database");
 
 /* ---------------- SESSION STORE (POSTGRES) ---------------- */
 
@@ -69,14 +40,19 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 1000 * 60 * 60 * 24 * 7
+  httpOnly: true,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 1000 * 60 * 60 * 24 * 7
   }
 }));
 
 /* ---------------- MIDDLEWARE ---------------- */
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+}));
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
@@ -91,18 +67,6 @@ app.use("/api/login", rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
 }));
-
-const registerSchema = z.object({
-  firstName: z.string().min(1).max(50),
-  lastName: z.string().min(1).max(50),
-  email: z.string().email().max(255),
-  password: z.string().min(6).max(100),
-});
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
 
 /* ---------------- INIT DATABASE TABLES ---------------- */
 
@@ -208,88 +172,6 @@ await pool.query(`
     PRIMARY KEY (playlist_id, song_id)
   )
 `);
-
-
-}
-
-/* ---------------- HELPERS ---------------- */
-async function addNotification(type, message) {
-  try {
-    const time = new Date().toISOString();
-
-    await pool.query(
-      "INSERT INTO notifications (type, message, time) VALUES ($1, $2, $3)",
-      [type, message, time]
-    );
-  } catch (err) {
-    console.error("Notification error:", err);
-  }
-}
-async function fetchGenreFromITunes({ title, artist }) {
-  try {
-    const term = `${artist || ""} ${title || ""}`.trim();
-
-    if (!term) return null;
-
-    const res = await fetch(
-      `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&entity=song&limit=1`
-    );
-
-    if (!res.ok) return null;
-
-    const data = await res.json();
-
-    return data.results?.[0]?.primaryGenreName || null;
-
-  } catch (err) {
-    console.warn("iTunes genre lookup failed:", err.message);
-    return null;
-  }
-}
-async function fetchLyricsFromLRCLIB({ title, artist, album, duration }) {
-  try {
-    const params = new URLSearchParams({
-      track_name: title || "",
-      artist_name: artist || "",
-    });
-
-    if (album) {
-      params.append("album_name", album);
-    }
-
-    if (duration) {
-      params.append("duration", Math.round(duration));
-    }
-
-    const res = await fetch(
-      `https://lrclib.net/api/get?${params.toString()}`
-    );
-
-    if (!res.ok) {
-      console.warn("LRCLIB lyrics not found:", title, artist);
-      return null;
-    }
-
-    const data = await res.json();
-
-    return data.syncedLyrics || data.plainLyrics || null;
-  } catch (err) {
-    console.warn("LRCLIB fetch failed:", err.message);
-    return null;
-  }
-}
-
-async function fetchLyrics({ title, artist, album, duration }) {
-  const lrclibLyrics = await fetchLyricsFromLRCLIB({
-    title,
-    artist,
-    album,
-    duration
-  });
-
-  if (lrclibLyrics) return lrclibLyrics;
-
-  return null;
 }
 
 /* =========================
@@ -343,22 +225,6 @@ const upload = multer({
     cb(null, true);
   }
 });
-
-/* ---------------- AUTH HELPERS ---------------- */
-
-function requireLogin(req, res, next) {
-  if (!req.session || !req.session.user) {
-    return res.status(401).json({ error: "Not logged in" });
-  }
-  next();
-}
-
-function requireAdmin(req, res, next) {
-  if (!req.session || !req.session.user || req.session.user.role !== "admin") {
-    return res.status(403).json({ error: "Admin only" });
-  }
-  next();
-}
 
 /* ---------------- PAGES ---------------- */
 
@@ -1262,20 +1128,10 @@ app.use((err, req, res, next) => {
   }
 });
 
-async function startServer() {
-  try {
-    await initDB();
-    console.log("✅ Database connected successfully");
-
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT} 🚀`);
-  });
-
-} catch (err) {
-    console.error("DB INIT ERROR:", err);
-  }
-}
-
 const PORT = process.env.PORT || 3000;
-startServer();
 
+initDB().then(() => {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Spotivibes server running on port ${PORT}`);
+  });
+});
