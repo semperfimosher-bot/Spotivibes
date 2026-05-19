@@ -101,14 +101,17 @@ function updatePlayButton() {
 
 function nextSong() {
   if (repeatMode && state.currentId) {
-  audio.currentTime = 0;
-  audio.play();
+    audio.currentTime = 0;
+    audio.play();
+    return;
+  }
 
-  state.isPlaying = true;
-
-  updatePlayButton();
-  return;
-}
+  if (state.queue.length) {
+    const next = state.queue.shift();
+    playSong(next.id);
+    renderQueue?.();
+    return;
+  }
 
   if (shuffleMode) {
     const otherSongs = state.songs.filter(
@@ -132,7 +135,6 @@ function nextSong() {
     playSong(state.songs[i + 1].id);
   }
 }
-
 function prevSong() {
   const i = state.songs.findIndex(
     s => s.id === state.currentId

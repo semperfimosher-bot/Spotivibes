@@ -140,7 +140,10 @@ async function initDB() {
   await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS year TEXT`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
-
+  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS query TEXT`);
+  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS is_generated BOOLEAN DEFAULT false`);
+  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
+ 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS notifications (
       id SERIAL PRIMARY KEY,
@@ -1082,34 +1085,51 @@ app.get("/api/smart-search", requireLogin, async (req, res) => {
    ✅ ADDED: SAVE PLAYLIST
 ========================= */
 app.post("/api/playlists/save", requireLogin, async (req, res) => {
-  const { name, query, songs } = req.body;
-  const userId = req.session.user.id;
-
   try {
+    const { name, query, songs } = req.body;
+
+    if (!name || !Array.isArray(songs)) {
+      return res.status(400).json({
+        error: "Missing playlist name or songs"
+      });
+    }
+
     const playlistResult = await pool.query(
-      `INSERT INTO playlists (user_id, name, query, is_generated)
-       VALUES ($1, $2, $3, false)
-       RETURNING id`,
-      [userId, name, query]
+      `
+      INSERT INTO playlists (user_id, name, query, is_generated)
+      VALUES ($1, $2, $3, true)
+      RETURNING id
+      `,
+      [req.session.user.id, name, query || name]
     );
 
     const playlistId = playlistResult.rows[0].id;
 
     for (const song of songs) {
+      if (!song.id) continue;
+
       await pool.query(
-        `INSERT INTO playlist_songs (playlist_id, song_id)
-         VALUES ($1, $2)`,
+        `
+        INSERT INTO playlist_songs (playlist_id, song_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+        `,
         [playlistId, song.id]
       );
     }
 
-    res.json({ success: true, playlistId });
+    res.json({
+      success: true,
+      playlistId
+    });
 
   } catch (err) {
-    res.status(500).json({ error: "Failed to save playlist" });
-  }
+    console.error("SAVE PLAYLIST ERROR:", err);
 
-  console.error("GET PLAYLISTS ERROR:", err);
+    res.status(500).json({
+      error: "Failed to save playlist"
+    });
+  }
 });
 
 /* =========================
@@ -1143,85 +1163,68 @@ app.get("/api/playlists", requireLogin, async (req, res) => {
    ✅ ADDED: GET PLAYLIST DETAILS
 ========================= */
 app.get("/api/playlists/:id", requireLogin, async (req, res) => {
+
   try {
-    const playlist = await pool.query(
-      "SELECT * FROM playlists WHERE id = $1 AND user_id = $2",
-      [req.params.id, req.session.user.id]
-    );
 
-    if (!playlist.rows[0]) {
-      return res.status(404).json({ error: "Playlist not found" });
-    }
-
-    const songs = await pool.query(
-      `SELECT songs.* FROM songs
-       JOIN playlist_songs ON songs.id = playlist_songs.song_id
-       WHERE playlist_songs.playlist_id = $1`,
+    const playlistResult = await pool.query(
+      `
+      SELECT *
+      FROM playlists
+      WHERE id = $1
+      `,
       [req.params.id]
     );
 
-    const songsWithUrls = await Promise.all(
-      songs.rows.map(async (s) => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        genre: s.genre,
-        album: s.album,
-        mood: s.mood,
-        lyrics: s.lyrics,
-        year: s.year,
-        audioUrl: await getFileUrl(s.audio_url),
-        coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null,
-      
+    const playlist = playlistResult.rows[0];
+
+    if (!playlist) {
+      return res.status(404).json({
+        error: "Playlist not found"
+      });
+    }
+
+    const songsResult = await pool.query(
+      `
+      SELECT songs.*
+      FROM playlist_songs
+      JOIN songs
+        ON songs.id = playlist_songs.song_id
+      WHERE playlist_songs.playlist_id = $1
+      `,
+      [playlist.id]
+    );
+
+    const songs = await Promise.all(
+      songsResult.rows.map(async (song) => ({
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        genre: song.genre,
+        album: song.album,
+        year: song.year,
+        lyrics: song.lyrics,
+        audioUrl: await getFileUrl(song.audio_url),
+        coverUrl: song.cover_url
+          ? await getFileUrl(song.cover_url)
+          : null
       }))
     );
 
     res.json({
-      playlist: playlist.rows[0],
-      songs: songsWithUrls
+      playlist,
+      songs
     });
 
   } catch (err) {
-    res.status(500).json({ error: "Failed to load playlist" });
-  }
-});
 
-/* ---------------- SEARCH ---------------- */
-
-app.get("/api/search", requireLogin, async (req, res) => {
-  const q = (req.query.q || "").toLowerCase();
-
-  try {
-    const result = await pool.query(
-  `
-  SELECT *
-  FROM songs
-  ORDER BY id DESC
-  LIMIT 500
-  `
-);
-
-    const songs = result.rows;
-
-    const songsWithUrls = await Promise.all(
-      songs.map(async (s) => ({
-        id: s.id,
-        title: s.title,
-        artist: s.artist,
-        genre: s.genre,
-        album: s.album,
-        mood: s.mood,
-        lyrics: s.lyrics,
-        year: s.year,
-        audioUrl: await getFileUrl(s.audio_url),
-        coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null
-      }))
+    console.error(
+      "GET PLAYLIST DETAILS ERROR:",
+      err
     );
 
-    res.json({ songs: songsWithUrls });
-
-  } catch (err) {
-    res.status(500).json({ error: "Search failed" });
+    res.status(500).json({
+      error: "Failed to load playlist"
+    });
   }
 });
 

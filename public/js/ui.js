@@ -288,23 +288,24 @@ async function handleMobileSearch(e) {
 
   if (!res) return;
 
-  if (res.playlists?.length) {
-    res.playlists.forEach(playlist => {
-      results.appendChild(createGeneratedPlaylistCard(playlist));
-    });
+ if (res.playlists?.length) {
+  const seenPlaylists = new Set();
 
-    highlightCurrentSong();
-    return;
-  }
+  res.playlists.forEach(playlist => {
+    const key = playlist.name.toLowerCase();
 
-  if (res.songs?.length) {
-    res.songs.forEach(song => {
-      results.appendChild(createSongRow(song));
-    });
+    if (seenPlaylists.has(key)) return;
 
-    highlightCurrentSong();
-    return;
-  }
+    seenPlaylists.add(key);
+
+    results.appendChild(
+      createGeneratedPlaylistCard(playlist)
+    );
+  });
+
+  highlightCurrentSong();
+  return;
+}
 
   results.innerHTML =
     "<p style='color:#b3b3b3'>No results found.</p>";
@@ -444,48 +445,54 @@ function renderPlaylistSongs(playlist) {
 // COMPONENTS
 // ==========================
 function createGeneratedPlaylistCard(playlist) {
-
   const row = document.createElement("div");
-
   row.className = "row generated-playlist-row";
 
   row.innerHTML = `
-    ...
+    ${renderPlaylistArt(playlist)}
+
+    <div style="flex:1">
+      <div style="color:white">
+        ${playlist.name}
+      </div>
+
+      <div style="color:#b3b3b3;font-size:12px">
+        ${playlist.type || "playlist"} · ${playlist.songs.length} songs
+      </div>
+    </div>
+
+    <button class="playlist-add-btn">
+      Add
+    </button>
   `;
 
   row.addEventListener("click", () => {
     renderPlaylistSongs(playlist);
   });
 
-  const addBtn =
-    row.querySelector(".playlist-add-btn");
+  const addBtn = row.querySelector(".playlist-add-btn");
 
   addBtn?.addEventListener("click", async (e) => {
+  e.stopPropagation();
 
-    e.stopPropagation();
-
-    const res = await apiFetch(
-      "/api/playlists/save",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          name: playlist.name,
-          query: playlist.name,
-          songs: playlist.songs
-        })
-      }
-    );
-
-    if (res?.success) {
-
-      await loadSavedPlaylists();
-
-      addBtn.innerText = "Added";
-    }
+  const res = await apiFetch("/api/playlists/save", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      name: playlist.name,
+      query: playlist.name,
+      songs: playlist.songs
+    })
   });
+
+  if (res?.success) {
+    await loadSavedPlaylists();
+    renderLibrary();
+    addBtn.innerText = "Added";
+  }
+});
 
   return row;
 }
@@ -649,8 +656,11 @@ function createSongCard(song) {
 }
 
 function createSongRow(song) {
+
   const row = document.createElement("div");
+
   row.className = "row";
+
   row.dataset.id = song.id;
 
   row.innerHTML = `
@@ -676,12 +686,89 @@ function createSongRow(song) {
     <button class="song-more-btn">⋯</button>
   `;
 
-  row.addEventListener("click", () => playSong(song.id));
+  // ==========================
+  // SWIPE TO QUEUE
+  // ==========================
 
-  const moreBtn = row.querySelector(".song-more-btn");
+  let startX = 0;
+  let currentX = 0;
+
+  const swipeLabel = document.createElement("div");
+
+  swipeLabel.className = "swipe-queue-label";
+
+  swipeLabel.innerText = "Add to queue";
+
+  row.prepend(swipeLabel);
+
+  row.addEventListener("touchstart", (e) => {
+
+    startX = e.touches[0].clientX;
+
+    currentX = startX;
+  });
+
+  row.addEventListener("touchmove", (e) => {
+
+    currentX = e.touches[0].clientX;
+
+    const diff = currentX - startX;
+
+    if (diff > 0 && diff < 140) {
+      row.style.transform =
+        `translateX(${diff}px)`;
+    }
+
+    if (diff > 80) {
+      swipeLabel.classList.add("active");
+    } else {
+      swipeLabel.classList.remove("active");
+    }
+  });
+
+  row.addEventListener("touchend", () => {
+
+    const diff = currentX - startX;
+
+    if (diff > 115) {
+
+  addToQueue(song);
+
+  showQueueToast(song);
+
+  row.style.transform =
+    "translateX(120px)";
+
+      setTimeout(() => {
+        row.style.transform = "";
+      }, 150);
+    } else {
+
+      row.style.transform = "";
+    }
+
+    swipeLabel.classList.remove("active");
+  });
+
+  // ==========================
+  // PLAY SONG
+  // ==========================
+
+  row.addEventListener("click", () => {
+    playSong(song.id);
+  });
+
+  // ==========================
+  // MORE BUTTON
+  // ==========================
+
+  const moreBtn =
+    row.querySelector(".song-more-btn");
 
   moreBtn?.addEventListener("click", (e) => {
+
     e.stopPropagation();
+
     openSongMenu(song, moreBtn);
   });
 
@@ -1040,15 +1127,14 @@ function renderQueue() {
 
   list.innerHTML = "";
 
-  const idx = state.songs.findIndex(s => s.id === state.currentId);
-  const queue = state.songs.slice(idx + 1, idx + 11);
-
-  if (!queue.length) {
+  if (!state.queue.length) {
     list.innerHTML = "<p style='color:#b3b3b3'>Queue is empty</p>";
     return;
   }
 
-  queue.forEach(s => list.appendChild(createSongRow(s)));
+  state.queue.forEach(song => {
+    list.appendChild(createSongRow(song));
+  });
 }
 
 // ==========================
@@ -1185,6 +1271,32 @@ function downloadSong(song) {
   a.remove();
 }
 
+function showQueueToast(song) {
+
+  const toast = document.createElement("div");
+
+  toast.className = "queue-toast";
+
+  toast.innerText =
+    `${song.title} added to queue`;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("show");
+  }, 10);
+
+  setTimeout(() => {
+
+    toast.classList.remove("show");
+
+    setTimeout(() => {
+      toast.remove();
+    }, 200);
+
+  }, 1800);
+}
+
 async function addSongToLibrary(song) {
   await apiFetch("/api/library/add", {
     method: "POST",
@@ -1209,6 +1321,17 @@ async function removeSongFromLibrary(song) {
     !document.getElementById("homeView").classList.contains("hidden")
   ) {
     renderHome();
+  }
+}
+
+function addToQueue(song) {
+  const exists = state.queue.some(
+    s => String(s.id) === String(song.id)
+  );
+
+  if (!exists) {
+    state.queue.push(song);
+    renderQueue();
   }
 }
 
@@ -1338,11 +1461,8 @@ if (userBox && data.user) {
   // ==========================
 
   openStatsBtn?.addEventListener("click", () => {
-
     profileMenu.classList.add("hidden");
-
     showView("stats");
-
     renderListeningStats();
   });
 }
@@ -1461,6 +1581,12 @@ songInfoModal?.addEventListener("click", (e) => {
   }
 });
 
+openQueueBtn?.addEventListener("click", () => {
+  showView("queue");
+  renderQueue();
+  moreSheet?.classList.add("hidden");
+});
+
   function toggleMoreSheet(e) {
     e.stopPropagation();
     moreSheet?.classList.toggle("hidden");
@@ -1480,12 +1606,6 @@ songInfoModal?.addEventListener("click", (e) => {
       e.target.closest("#moreSheet")
     ) return;
 
-    moreSheet?.classList.add("hidden");
-  });
-
-  openQueueBtn?.addEventListener("click", () => {
-    showView("queue");
-    renderQueue();
     moreSheet?.classList.add("hidden");
   });
 }
