@@ -54,11 +54,6 @@ router.post("/remove", requireLogin, async (req, res) => {
       return res.status(400).json({ error: "Missing playlistId" });
     }
 
-    await pool.query(
-      `DELETE FROM playlist_songs WHERE playlist_id = $1`,
-      [playlistId]
-    );
-
     const result = await pool.query(
       `
       DELETE FROM playlists

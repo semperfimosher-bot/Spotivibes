@@ -277,10 +277,6 @@ async function loadNotifications() {
 document.getElementById("deleteAllContentBtn")
   ?.addEventListener("click", async () => {
 
-    const code = prompt(
-      "Type 2009 to delete all content:"
-    );
-
     if (code !== "2009") {
       alert("Wrong code.");
       return;

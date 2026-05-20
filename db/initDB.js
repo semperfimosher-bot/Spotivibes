@@ -3,19 +3,6 @@ const pool = require("../database");
 
 async function initDB() {
 
-  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS genre TEXT`);
-  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS album TEXT`);
-  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS duration REAL`);
-  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS cover_url TEXT`);
-  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS lyrics TEXT`);
-  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS mood TEXT`);
-  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS year TEXT`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
-  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS query TEXT`);
-  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS is_generated BOOLEAN DEFAULT false`);
-  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
-
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -96,5 +83,20 @@ await pool.query(`
     played_at TIMESTAMP DEFAULT NOW()
   )
 `);
+
+await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS genre TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS album TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS duration REAL`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS cover_url TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS lyrics TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS mood TEXT`);
+  await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS year TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
+  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS query TEXT`);
+  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS is_generated BOOLEAN DEFAULT false`);
+  await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
+
 }
+
 module.exports = initDB;
