@@ -957,89 +957,6 @@ function renderArtistSongStats(artist, stats) {
   document.getElementById("backToArtistsBtn")?.addEventListener("click", renderListeningStats);
 }
 
-  function renderListeningStats() {
-  const list = document.getElementById("artistStatsList");
-  if (!list) return;
-
-  list.innerHTML = "";
-
-  const artists = Object.keys(stats);
-
-  if (!artists.length) {
-    list.innerHTML =
-      "<p style='color:#b3b3b3'>No listening stats yet.</p>";
-    return;
-  }
-
-  artists
-  .sort((a, b) => {
-    const totalA = Object.values(stats[a])
-      .reduce((sum, count) => sum + count, 0);
-
-    const totalB = Object.values(stats[b])
-      .reduce((sum, count) => sum + count, 0);
-
-    return totalB - totalA;
-  })
-  .forEach(artist => {
-
-    const totalPlays = Object.values(stats[artist])
-      .reduce((sum, count) => sum + count, 0);
-
-    const row = document.createElement("div");
-    row.className = "row";
-
-    row.innerHTML = `
-      <div>
-        <div style="color:white">${artist}</div>
-        <div style="color:#b3b3b3;font-size:12px">
-          ${totalPlays} total plays
-        </div>
-      </div>
-    `;
-
-    row.addEventListener("click", () => {
-      renderArtistSongStats(artist);
-    });
-
-    list.appendChild(row);
-  });
-}
-
-function renderArtistSongStats(artist) {
-  const list = document.getElementById("artistStatsList");
-  if (!list) return;
-
-  const songs = stats[artist] || {};
-
-  list.innerHTML = `
-    <button id="backToArtistsBtn">← Back</button>
-    <h2>${artist}</h2>
-  `;
-
-  Object.entries(songs)
-  .sort((a, b) => b[1] - a[1])
-  .forEach(([title, count]) => {
-
-    const row = document.createElement("div");
-    row.className = "row";
-
-    row.innerHTML = `
-      <div>
-        <div style="color:white">${title}</div>
-        <div style="color:#b3b3b3;font-size:12px">
-          Played ${count} time${count === 1 ? "" : "s"}
-        </div>
-      </div>
-    `;
-
-    list.appendChild(row);
-  });
-
-  document
-    .getElementById("backToArtistsBtn")
-    ?.addEventListener("click", renderListeningStats);
- }
 function renderHome() {
   const recent = document.getElementById("recentGrid");
   const top = document.getElementById("topSongsGrid");
@@ -1427,11 +1344,12 @@ function initProfileMenu() {
   // STATS
   // ==========================
 
-  openStatsBtn?.addEventListener("click", () => {
-    profileMenu.classList.add("hidden");
-    showView("stats");
-    renderListeningStats();
-  });
+ openStatsBtn?.addEventListener("click", async () => {
+  profileMenu.classList.add("hidden");
+  showView("stats");
+  await renderListeningStats();
+});
+
 }
 
 function initCustomPlaylists() {
