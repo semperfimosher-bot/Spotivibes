@@ -12,8 +12,12 @@ async function loadConfig() {
     return;
   }
 
-  const res = await fetch("https://api.spotivibes.com/config");
-  const data = await res.json();
+  try {
+    const res = await fetch("https://api.spotivibes.com/config");
+    const data = await res.json();
 
-  window.SPOTIVIBES_CONFIG.API_BASE = data.apiBase || "";
+    window.SPOTIVIBES_CONFIG.API_BASE = data.apiBase || "";
+  } catch (err) {
+    console.error("Config load failed:", err);
+  }
 }

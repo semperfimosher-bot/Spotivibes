@@ -21,9 +21,10 @@ const configRoutes = require("./routes/config.routes");
 require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const app = express();
-app.use("/config", configRoutes);
 
 app.set("trust proxy", 1);
+
+app.use("/config", configRoutes);
 
 const pool = require("./database");
 
@@ -41,11 +42,11 @@ app.use(session({
   saveUninitialized: false,
  cookie: {
   httpOnly: true,
-  sameSite: "none",
-  secure: true,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  secure: process.env.NODE_ENV === "production",
   maxAge: 1000 * 60 * 60 * 24 * 7
-  }
- }
+}
+}
 ));
 
 /* ---------------- MIDDLEWARE ---------------- */
