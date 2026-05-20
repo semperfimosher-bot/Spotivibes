@@ -582,11 +582,16 @@ row.querySelector(".remove-playlist-btn")
   ?.addEventListener("click", async (e) => {
     e.stopPropagation();
 
-    await apiFetch("/api/playlists/remove", {
+    const res = await apiFetch("/api/playlists/remove", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ playlistId: playlist.id })
     });
+
+    if (!res?.success) {
+      alert("Failed to remove playlist from database");
+      return;
+    }
 
     await loadSavedPlaylists();
     renderLibrary();
@@ -1282,11 +1287,16 @@ async function addSongToLibrary(song) {
 }
 
 async function removeSongFromLibrary(song) {
-  await apiFetch("/api/library/remove", {
+  const res = await apiFetch("/api/library/remove", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ songId: song.id })
   });
+
+  if (!res?.success) {
+    alert("Failed to remove song from database");
+    return;
+  }
 
   await loadLibrary();
 

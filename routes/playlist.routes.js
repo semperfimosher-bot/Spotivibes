@@ -55,23 +55,27 @@ router.post("/remove", requireLogin, async (req, res) => {
     }
 
     await pool.query(
-      `
-      DELETE FROM playlist_songs
-      WHERE playlist_id = $1
-      `,
+      `DELETE FROM playlist_songs WHERE playlist_id = $1`,
       [playlistId]
     );
 
-    await pool.query(
+    const result = await pool.query(
       `
       DELETE FROM playlists
       WHERE id = $1
       AND user_id = $2
+      RETURNING id
       `,
       [playlistId, req.session.user.id]
     );
 
-    res.json({ success: true });
+    if (!result.rows.length) {
+      return res.status(404).json({
+        error: "Playlist not found or not owned by user"
+      });
+    }
+
+    res.json({ success: true, deletedId: result.rows[0].id });
   } catch (err) {
     console.error("REMOVE PLAYLIST ERROR:", err);
     res.status(500).json({ error: "Failed to remove playlist" });

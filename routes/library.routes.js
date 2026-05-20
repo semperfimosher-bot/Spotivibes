@@ -53,14 +53,21 @@ router.post("/add", requireLogin, async (req, res) => {
 router.post("/remove", requireLogin, async (req, res) => {
   const { songId } = req.body;
 
-  await pool.query(
+  const result = await pool.query(
     `
     DELETE FROM user_library
     WHERE user_id = $1
     AND song_id = $2
+    RETURNING song_id
     `,
     [req.session.user.id, songId]
   );
+
+  if (!result.rows.length) {
+    return res.status(404).json({
+      error: "Song not found in library"
+    });
+  }
 
   res.json({ success: true });
 });
