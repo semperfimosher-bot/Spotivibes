@@ -1672,40 +1672,17 @@ document.addEventListener("click", (e) => {
 });
 
 if (document.readyState === "loading") {
-
-  document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-      initUI();
-
-      initMoreSheet();
-
-      initProfileMenu();
-
-      initCustomPlaylists();
-
-      loadUser();
-
-      loadLibrary();
-
-      loadSavedPlaylists();
-    }
-  );
+  document.addEventListener("DOMContentLoaded", () => {
+    
+    initUI();
+    initMoreSheet();
+    initProfileMenu();
+    initCustomPlaylists();
+  });
 
 } else {
-
   initUI();
-
   initMoreSheet();
-
   initProfileMenu();
-
   initCustomPlaylists();
-
-  loadUser();
-
-  loadLibrary();
-
-  loadSavedPlaylists();
 }

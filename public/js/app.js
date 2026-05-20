@@ -3,9 +3,14 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   await loadUser();
   await loadSongs();
+  await loadLibrary();
+  await loadSavedPlaylists();
   await loadBackground();
 
   initUI();
+  initMoreSheet();
+  initProfileMenu();
+  initCustomPlaylists();
 
   restoreLastPlayback?.();
 

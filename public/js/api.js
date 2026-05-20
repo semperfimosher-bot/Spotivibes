@@ -78,10 +78,7 @@ async function loadSongs() {
   }
 
   state.songs = data.songs || [];
-
-  // keep your existing flow
   renderHome();
-  renderLibrary();
 }
 
 // =========================
