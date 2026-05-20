@@ -209,7 +209,8 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 },
+  limits: { fileSize: 250 * 1024 * 1024 },
+  files: 200,
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
       "audio/mpeg",

@@ -115,6 +115,12 @@
       <div id="notifList"></div>
     </div>
 
+    <div id="uploadProgressWrap" style="width:100%;background:#222;border-radius:8px;overflow:hidden;margin-top:12px;">
+  <div id="uploadProgressBar" style="width:0%;height:14px;background:#004cff;"></div>
+</div>
+
+<p id="uploadProgressText">0%</p>
+
   </div>
 
 </div>
@@ -167,34 +173,55 @@ function deleteSong(id) {
 async function uploadFiles() {
   await loadConfig();
 
-  const files = document.getElementById("fileInput").files;
+  const files = Array.from(document.getElementById("fileInput").files);
   const status = document.getElementById("status");
+  const bar = document.getElementById("uploadProgressBar");
+  const text = document.getElementById("uploadProgressText");
 
   if (!files.length) {
     status.innerText = "No files selected";
     return;
   }
 
-  const formData = new FormData();
-  for (let file of files) {
-    formData.append("songs", file);
-  }
+  const batchSize = 10;
+  let uploaded = 0;
 
+  bar.style.width = "0%";
+  text.innerText = `0 of ${files.length} songs uploaded`;
   status.innerText = "Uploading...";
 
-  const data = await apiFetch("/api/upload-files", {
-    method: "POST",
-    body: formData
-  });
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    const formData = new FormData();
 
-  if (!data?.success) {
-    status.innerText = data?.error || "Upload failed";
-    return;
+    batch.forEach(file => {
+      formData.append("songs", file);
+    });
+
+    const data = await apiFetch("/api/upload-files", {
+      method: "POST",
+      body: formData
+    });
+
+    if (!data?.success) {
+      status.innerText = `Upload failed at song ${uploaded + 1}`;
+      return;
+    }
+
+    uploaded += batch.length;
+
+    const percent = Math.round((uploaded / files.length) * 100);
+
+    bar.style.width = `${percent}%`;
+    text.innerText = `${uploaded} of ${files.length} songs uploaded`;
   }
 
   status.innerText = "Upload complete!";
+  text.innerText = `${files.length} of ${files.length} songs uploaded`;
+
   document.getElementById("fileInput").value = "";
-  loadSongs();
+
+  await loadSongs();
 }
 
 /* 🔥 FIXED BACKGROUND UPLOAD */
