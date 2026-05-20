@@ -527,28 +527,12 @@ function restoreLastPlayback() {
   });
 }
 
-function trackListeningStats(song) {
+async function trackListeningStats(song) {
+  if (!song?.id) return;
 
-if (!song || !song.title || !song.artist) return;
-
-  const stats =
-    JSON.parse(localStorage.getItem("listeningStats")) || {};
-
-  const artist = song.artist || "Unknown Artist";
-  const title = song.title || "Unknown Title";
-
-  if (!stats[artist]) {
-    stats[artist] = {};
-  }
-
-  if (!stats[artist][title]) {
-    stats[artist][title] = 0;
-  }
-
-  stats[artist][title] += 1;
-
-  localStorage.setItem(
-    "listeningStats",
-    JSON.stringify(stats)
-  );
+  await apiFetch("/api/listening-stats/play", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ songId: song.id })
+  });
 }

@@ -578,11 +578,10 @@ function createSidebarPlaylistRow(playlist) {
     menu.classList.toggle("hidden");
   });
 
-  row.querySelector(".remove-playlist-btn")
-  ?.addEventListener("click", () => {
+row.querySelector(".remove-playlist-btn")
+  ?.addEventListener("click", async (e) => {
+    e.stopPropagation();
 
-   row.querySelector(".remove-playlist-btn")
-  ?.addEventListener("click", async () => {
     await apiFetch("/api/playlists/remove", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -591,7 +590,8 @@ function createSidebarPlaylistRow(playlist) {
 
     await loadSavedPlaylists();
     renderLibrary();
-  });
+
+    menu.classList.add("hidden");
   });
 
   row.querySelector(".download-playlist-btn")
@@ -956,9 +956,6 @@ function renderArtistSongStats(artist, stats) {
   const list = document.getElementById("artistStatsList");
   if (!list) return;
 
-  const stats =
-    JSON.parse(localStorage.getItem("listeningStats")) || {};
-
   list.innerHTML = "";
 
   const artists = Object.keys(stats);
@@ -1007,9 +1004,6 @@ function renderArtistSongStats(artist, stats) {
 function renderArtistSongStats(artist) {
   const list = document.getElementById("artistStatsList");
   if (!list) return;
-
-  const stats =
-    JSON.parse(localStorage.getItem("listeningStats")) || {};
 
   const songs = stats[artist] || {};
 
@@ -1080,14 +1074,6 @@ function renderLibrary() {
   if (!songs.length && !playlists.length) {
     list.innerHTML = "<p style='color:#b3b3b3'>Your library is empty</p>";
   }
-
-  customPlaylists.forEach(p => {
-  if (sidebarList) {
-    sidebarList.appendChild(createSidebarPlaylistRow(p));
-  }
-
-  list.appendChild(createSidebarPlaylistRow(p));
-});
 
   playlists.forEach(p => {
     list.appendChild(createSidebarPlaylistRow(p));
@@ -1612,6 +1598,7 @@ async function loadSavedPlaylists() {
   }
 
   state.libraryPlaylists = fullPlaylists;
+state.customPlaylists = fullPlaylists.filter(p => p.type !== "generated");
 
   renderLibrary();
 }

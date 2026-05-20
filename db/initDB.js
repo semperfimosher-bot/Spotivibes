@@ -102,5 +102,14 @@ await pool.query(`
     PRIMARY KEY (playlist_id, song_id)
   )
 `);
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS listening_history (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    song_id INT REFERENCES songs(id) ON DELETE CASCADE,
+    played_at TIMESTAMP DEFAULT NOW()
+  )
+`);
 }
 module.exports = initDB;

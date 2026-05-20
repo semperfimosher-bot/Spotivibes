@@ -7,15 +7,24 @@ const router = express.Router();
 router.get("/", requireLogin, async (req, res) => {
   const result = await pool.query(
     `
-    SELECT * FROM listening_stats
-    WHERE user_id = $1
+    SELECT songs.title, songs.artist, COUNT(*)::int AS plays
+    FROM listening_history
+    JOIN songs ON songs.id = listening_history.song_id
+    WHERE listening_history.user_id = $1
+    GROUP BY songs.artist, songs.title
+    ORDER BY plays DESC
     `,
     [req.session.user.id]
   );
 
-  res.json({
-    stats: result.rows[0]?.data || {}
+  const stats = {};
+
+  result.rows.forEach(row => {
+    if (!stats[row.artist]) stats[row.artist] = {};
+    stats[row.artist][row.title] = row.plays;
   });
+
+  res.json({ stats });
 });
 
 router.post("/play", requireLogin, async (req, res) => {
