@@ -45,11 +45,11 @@ const upload = multer({
 
 /* ---------------- DELETE ALL CONTENT ---------------- */
 
-router.delete("/admin/delete-all-content", requireAdmin, async (req, res) => {
+router.post("/admin/delete-all-content", requireAdmin, async (req, res) => {
   try {
     const { code } = req.body;
 
-    if (code !== "2009") {
+    if (code !== DELETE_ALL_CODE) {
       return res.status(403).json({
         error: "Invalid confirmation code"
       });

@@ -16,8 +16,23 @@ const adminRoutes = require("./routes/admin.routes");
 const playlistRoutes = require("./routes/playlist.routes");
 const usersRoutes = require("./routes/users.routes");
 const statsRoutes = require("./routes/stats.routes");
+const helmet = require("helmet");
 
 const app = express();
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        mediaSrc: ["'self'", "https:"],
+        connectSrc: ["'self'", process.env.FRONTEND_URL || "'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
+  })
+);
 
 app.set("trust proxy", 1);
 
