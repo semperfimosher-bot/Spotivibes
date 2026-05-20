@@ -156,6 +156,9 @@
   </div>
 </div>
 
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+
 <script>
 function login() {
   const email = document.getElementById("email").value;
@@ -166,7 +169,7 @@ function login() {
     return;
   }
 
-  fetch("/api/login", {
+  apifetch("/api/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password })
@@ -190,7 +193,7 @@ function register() {
     return;
   }
 
-  fetch("/api/register", {
+  apifetch("/api/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ firstName, lastName, email, password })
