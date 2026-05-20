@@ -1412,13 +1412,22 @@ function initProfileMenu() {
 
     try {
 
-      const res = await fetch(
-        "/api/profile-picture",
-        {
-          method: "POST",
-          body: formData
-        }
-      );
+    const data = await apiFetch("/api/profile-picture", {
+  method: "POST",
+  body: formData
+});
+
+if (!data) {
+  alert("Upload failed");
+  return;
+}
+
+if (data.profilePicture) {
+  profileAvatar.innerHTML = "";
+  profileAvatar.style.backgroundImage = `url('${data.profilePicture}')`;
+  profileAvatar.style.backgroundSize = "cover";
+  profileAvatar.style.backgroundPosition = "center";
+}
 
       const data = await res.json();
 
