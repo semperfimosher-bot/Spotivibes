@@ -119,6 +119,9 @@
 
 </div>
 
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+
 <script>
 
 function show(page) {
@@ -130,7 +133,7 @@ function show(page) {
 
 /* LOAD SONGS */
 function loadSongs() {
-  fetch("/api/songs")
+  apifetch("/api/songs")
     .then(r => r.json())
     .then(d => {
       const sorted = d.songs.sort((a, b) => a.title.localeCompare(b.title));
@@ -149,7 +152,7 @@ function loadSongs() {
 function deleteSong(id) {
   if (!confirm("Delete this song?")) return;
 
-  fetch("/api/songs/" + id, { method: "DELETE" })
+  apifetch("/api/songs/" + id, { method: "DELETE" })
     .then(() => loadSongs());
 }
 
@@ -168,7 +171,7 @@ function uploadFiles() {
 
   status.innerText = "Uploading...";
 
-  fetch("/api/upload-files", {
+  apifetch("/api/upload-files", {
     method: "POST",
     body: formData
   })
@@ -200,7 +203,7 @@ function uploadBackground() {
 
   status.innerText = "Uploading...";
 
-  fetch("/api/upload-bg", {
+  apifetch("/api/upload-bg", {
     method: "POST",
     body: formData,
     credentials: "include"
@@ -228,7 +231,7 @@ function uploadBackground() {
 
 /* NOTIFICATIONS */
 function loadNotifications() {
-  fetch("/api/notifications")
+  apifetch("/api/notifications")
     .then(r => r.json())
     .then(d => {
       document.getElementById("notifList").innerHTML =
