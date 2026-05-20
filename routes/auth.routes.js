@@ -1,0 +1,257 @@
+const express = require("express");
+const bcrypt = require("bcrypt");
+const multer = require("multer");
+
+const pool = require("../database");
+
+const {
+  requireLogin
+} = require("../middleware/auth.middleware");
+
+const {
+  registerSchema
+} = require("../utils/validators");
+
+const {
+  addNotification
+} = require("../services/notification.service");
+
+const {
+  b2,
+  getFileUrl,
+  PutObjectCommand
+} = require("../services/storage.service");
+
+const router = express.Router();
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 20 * 1024 * 1024
+  }
+});
+
+/* ---------------- REGISTER ---------------- */
+
+router.post("/register", async (req, res) => {
+  try {
+    const validationResult = registerSchema.safeParse(req.body);
+
+    if (!validationResult.success) {
+      return res.status(400).json({
+        error: "Invalid input",
+        details: validationResult.error.errors
+      });
+    }
+
+    const { firstName, lastName, email, password } =
+      validationResult.data;
+
+    const hashed = await bcrypt.hash(password, 10);
+
+    const countResult =
+      await pool.query("SELECT COUNT(*) FROM users");
+
+    const userCount =
+      Number(countResult.rows[0].count);
+
+    const role =
+      userCount === 0 ? "admin" : "user";
+
+    const result = await pool.query(
+      `
+      INSERT INTO users
+      (first_name, last_name, email, password, role)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+      `,
+      [firstName, lastName, email, hashed, role]
+    );
+
+    await addNotification(
+      "USER_CREATED",
+      `User created: ${email}`
+    );
+
+    req.session.user = {
+      id: result.rows[0].id,
+      email,
+      firstName,
+      lastName,
+      role
+    };
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error("REGISTER ERROR:", err);
+
+    return res.status(400).json({
+      error: err.message
+    });
+  }
+});
+
+/* ---------------- LOGIN ---------------- */
+
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
+
+    const user = result.rows[0];
+
+    if (!user || typeof user.password !== "string") {
+      return res.status(401).json({
+        error: "Invalid login"
+      });
+    }
+
+    const match =
+      await bcrypt.compare(password, user.password);
+
+    if (!match) {
+      return res.status(401).json({
+        error: "Invalid login"
+      });
+    }
+
+    req.session.regenerate(err => {
+      if (err) {
+        return res.status(500).json({
+          error: "Session error"
+        });
+      }
+
+      req.session.user = {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role
+      };
+
+      res.json({
+        success: true,
+        user: req.session.user
+      });
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Server error"
+    });
+  }
+});
+
+/* ---------------- LOGOUT ---------------- */
+
+router.post("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Logout error:", err);
+
+      return res.status(500).json({
+        error: "Logout failed"
+      });
+    }
+
+    res.json({ success: true });
+  });
+});
+
+/* ---------------- CURRENT USER ---------------- */
+
+router.get("/me", async (req, res) => {
+
+  if (!req.session?.user) {
+    return res.json({
+      loggedIn: false,
+      user: null
+    });
+  }
+
+  const result = await pool.query(
+    "SELECT * FROM users WHERE id = $1",
+    [req.session.user.id]
+  );
+
+  const user = result.rows[0];
+
+  res.json({
+    loggedIn: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      role: user.role,
+
+      profilePicture:
+        user.profile_picture
+          ? await getFileUrl(user.profile_picture)
+          : null
+    }
+  });
+});
+
+/* ---------------- PROFILE PICTURE ---------------- */
+
+router.post(
+  "/profile-picture",
+  requireLogin,
+  upload.single("image"),
+  async (req, res) => {
+
+    try {
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: "No image uploaded"
+        });
+      }
+
+      const key =
+        `profiles/${Date.now()}-${req.file.originalname}`;
+
+      await b2.send(
+        new PutObjectCommand({
+          Bucket: process.env.B2_BUCKET_NAME,
+          Key: key,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype
+        })
+      );
+
+      await pool.query(
+        `
+        UPDATE users
+        SET profile_picture = $1
+        WHERE id = $2
+        `,
+        [key, req.session.user.id]
+      );
+
+      res.json({
+        success: true,
+        profilePicture: await getFileUrl(key)
+      });
+
+    } catch (err) {
+
+      console.error("PROFILE PIC ERROR:", err);
+
+      res.status(500).json({
+        error: "Upload failed"
+      });
+    }
+  }
+);
+
+module.exports = router;
