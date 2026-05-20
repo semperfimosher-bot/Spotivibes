@@ -160,7 +160,10 @@
 <script src="js/api.js"></script>
 
 <script>
-function login() {
+
+async function login() {
+  await loadConfig();
+
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
@@ -169,41 +172,47 @@ function login() {
     return;
   }
 
-  apifetch("/api/login", {
+  const data = await apiFetch("/api/login", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify({ email, password })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) window.location.href = "/";
-    else alert(data.error || "Login failed");
-  })
-  .catch(() => alert("Login request failed"));
+  });
+
+  if (data?.success) {
+    window.location.href = "/";
+  } else {
+    alert(data?.error || "Login failed");
+  }
 }
 
-function register() {
+async function register() {
+  await loadConfig();
+
   const firstName = document.getElementById("firstName").value;
   const lastName = document.getElementById("lastName").value;
   const email = document.getElementById("email").value;
   const password = document.getElementById("password").value;
 
-  if (!firstName || !lastName || !email || !password) {
-    alert("Please fill in all fields");
-    return;
-  }
-
-  apifetch("/api/register", {
+  const data = await apiFetch("/api/register", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ firstName, lastName, email, password })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) window.location.href = "/";
-    else alert(data.error || "Registration failed");
-  })
-  .catch(() => alert("Register request failed"));
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      firstName,
+      lastName,
+      email,
+      password
+    })
+  });
+
+  if (data?.success) {
+    window.location.href = "/";
+  } else {
+    alert(data?.error || "Register failed");
+  }
 }
 </script>
 
