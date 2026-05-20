@@ -1401,69 +1401,43 @@ function initProfileMenu() {
   // ==========================
 
   profilePicInput?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
 
-    const file = e.target.files?.[0];
+  if (!file) return;
 
-    if (!file) return;
+  const formData = new FormData();
+  formData.append("image", file);
 
-    const formData = new FormData();
-
-    formData.append("image", file);
-
-    try {
-
+  try {
     const data = await apiFetch("/api/profile-picture", {
-  method: "POST",
-  body: formData
-});
+      method: "POST",
+      body: formData
+    });
 
-if (!data) {
-  alert("Upload failed");
-  return;
-}
-
-if (data.profilePicture) {
-  profileAvatar.innerHTML = "";
-  profileAvatar.style.backgroundImage = `url('${data.profilePicture}')`;
-  profileAvatar.style.backgroundSize = "cover";
-  profileAvatar.style.backgroundPosition = "center";
-}
-
-      const data = await res.json();
-
-      const userBox = document.getElementById("userBox");
-
-if (userBox && data.user) {
-  userBox.innerText =
-    `${data.user.firstName} ${data.user.lastName}`;
-}
-
-      if (!res.ok) {
-        alert(data.error || "Upload failed");
-        return;
-      }
-
-      if (data.profilePicture) {
-
-        profileAvatar.innerHTML = "";
-
-        profileAvatar.style.backgroundImage =
-          `url('${data.profilePicture}')`;
-
-        profileAvatar.style.backgroundSize =
-          "cover";
-
-        profileAvatar.style.backgroundPosition =
-          "center";
-      }
-
-    } catch (err) {
-
-      console.error(err);
-
+    if (!data) {
       alert("Upload failed");
+      return;
     }
-  });
+
+    if (data.profilePicture) {
+      profileAvatar.innerHTML = "";
+      profileAvatar.style.backgroundImage = `url('${data.profilePicture}')`;
+      profileAvatar.style.backgroundSize = "cover";
+      profileAvatar.style.backgroundPosition = "center";
+    }
+
+    const userBox = document.getElementById("userBox");
+
+    if (userBox && data.user) {
+      userBox.innerText =
+        `${data.user.firstName} ${data.user.lastName}`;
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Upload failed");
+  }
+});
 
   // ==========================
   // STATS
