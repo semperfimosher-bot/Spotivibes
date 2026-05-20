@@ -1627,11 +1627,8 @@ async function loadSavedPlaylists() {
 }
 async function loadUser() {
   try {
-
-    const res = await fetch("/api/me");
-
-    const data = await res.json();
-
+    const data = await apiFetch("/api/me");
+    
     const userBox =
       document.getElementById("userBox");
 

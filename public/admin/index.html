@@ -133,7 +133,7 @@ function show(page) {
 
 /* LOAD SONGS */
 function loadSongs() {
-  apifetch("/api/songs")
+  apiFetch("/api/songs")
     .then(r => r.json())
     .then(d => {
       const sorted = d.songs.sort((a, b) => a.title.localeCompare(b.title));
@@ -152,12 +152,14 @@ function loadSongs() {
 function deleteSong(id) {
   if (!confirm("Delete this song?")) return;
 
-  apifetch("/api/songs/" + id, { method: "DELETE" })
+  apiFetch("/api/songs/" + id, { method: "DELETE" })
     .then(() => loadSongs());
 }
 
 /* UPLOAD SONGS */
-function uploadFiles() {
+async function uploadFiles() {
+  await loadConfig();
+
   const files = document.getElementById("fileInput").files;
   const status = document.getElementById("status");
 
@@ -167,25 +169,25 @@ function uploadFiles() {
   }
 
   const formData = new FormData();
-  for (let file of files) formData.append("songs", file);
+  for (let file of files) {
+    formData.append("songs", file);
+  }
 
   status.innerText = "Uploading...";
 
-  apifetch("/api/upload-files", {
+  const data = await apiFetch("/api/upload-files", {
     method: "POST",
     body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (!data.success) throw new Error();
-
-    status.innerText = "Upload complete!";
-    document.getElementById("fileInput").value = "";
-    loadSongs();
-  })
-  .catch(() => {
-    status.innerText = "Upload failed";
   });
+
+  if (!data?.success) {
+    status.innerText = data?.error || "Upload failed";
+    return;
+  }
+
+  status.innerText = "Upload complete!";
+  document.getElementById("fileInput").value = "";
+  loadSongs();
 }
 
 /* 🔥 FIXED BACKGROUND UPLOAD */
@@ -203,7 +205,7 @@ function uploadBackground() {
 
   status.innerText = "Uploading...";
 
-  apifetch("/api/upload-bg", {
+  apiFetch("/api/upload-bg", {
     method: "POST",
     body: formData,
     credentials: "include"
@@ -231,7 +233,7 @@ function uploadBackground() {
 
 /* NOTIFICATIONS */
 function loadNotifications() {
-  apifetch("/api/notifications")
+  apiFetch("/api/notifications")
     .then(r => r.json())
     .then(d => {
       document.getElementById("notifList").innerHTML =
