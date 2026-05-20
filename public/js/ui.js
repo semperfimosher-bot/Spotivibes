@@ -1515,7 +1515,7 @@ function initMoreSheet() {
   const openQueueBtn = document.getElementById("openQueue");
   const openInfoBtn = document.getElementById("openInfo");
   const songInfoModal = document.getElementById("songInfoModal");
-  const closeInfoBtn = document.getElementById("closeInfoBtn");
+  const closeInfoBtn = document.getElementById("closeSongInfo");
   const songInfoContent = document.getElementById("songInfoContent");
 
   openInfoBtn?.addEventListener("click", () => {
@@ -1670,19 +1670,3 @@ document.addEventListener("click", (e) => {
     closeSongMenu();
   }
 });
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    
-    initUI();
-    initMoreSheet();
-    initProfileMenu();
-    initCustomPlaylists();
-  });
-
-} else {
-  initUI();
-  initMoreSheet();
-  initProfileMenu();
-  initCustomPlaylists();
-}
