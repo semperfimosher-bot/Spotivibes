@@ -59,9 +59,9 @@ if (savedPic) {
 }
   }
 
-  if (data.user.profilePicUrl && avatar) {
+ if (data.user.profilePicture && avatar) {
     avatar.innerText = "";
-    avatar.style.backgroundImage = `url('${data.user.profilePicUrl}')`;
+    avatar.style.backgroundImage = `url('${data.user.profilePicture}')`;
     avatar.style.backgroundSize = "cover";
     avatar.style.backgroundPosition = "center";
   }

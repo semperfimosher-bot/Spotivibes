@@ -132,20 +132,27 @@ function show(page) {
 }
 
 /* LOAD SONGS */
-function loadSongs() {
-  apiFetch("/api/songs")
-    .then(r => r.json())
-    .then(d => {
-      const sorted = d.songs.sort((a, b) => a.title.localeCompare(b.title));
+async function loadSongs() {
+  await loadConfig();
 
-      document.getElementById("songList").innerHTML =
-        sorted.map(s => `
-          <div class="row">
-            <div>${s.title} - ${s.artist}</div>
-            <div class="deleteBtn" onclick="deleteSong(${s.id})">−</div>
-          </div>
-        `).join("");
-    });
+  const data = await apiFetch("/api/songs");
+
+  if (!data?.songs) {
+    document.getElementById("songList").innerHTML = "Failed to load songs";
+    return;
+  }
+
+  const sorted = data.songs.sort((a, b) =>
+    a.title.localeCompare(b.title)
+  );
+
+  document.getElementById("songList").innerHTML =
+    sorted.map(s => `
+      <div class="row">
+        <div>${s.title} - ${s.artist}</div>
+        <div class="deleteBtn" onclick="deleteSong(${s.id})">−</div>
+      </div>
+    `).join("");
 }
 
 /* DELETE SONG */
@@ -191,7 +198,9 @@ async function uploadFiles() {
 }
 
 /* 🔥 FIXED BACKGROUND UPLOAD */
-function uploadBackground() {
+async function uploadBackground() {
+  await loadConfig();
+
   const file = document.getElementById("bgFile").files[0];
   const status = document.getElementById("bgStatus");
 
@@ -205,44 +214,37 @@ function uploadBackground() {
 
   status.innerText = "Uploading...";
 
-  apiFetch("/api/upload-bg", {
+  const data = await apiFetch("/api/upload-bg", {
     method: "POST",
-    body: formData,
-    credentials: "include"
- })
-  .then(async res => {
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(text || "Upload failed");
-    }
-
-    return data;
-  })
-  .then(data => {
-   const url = data.backgroundUrl;
-
-    localStorage.setItem("bgImage", url);
-    status.innerText = "Upload successful!";
-  })
-  .catch((err) => {
-    console.error(err);
-    status.innerText = "Upload failed (check server response)";
+    body: formData
   });
+
+  if (!data?.success) {
+    status.innerText = data?.error || "Upload failed";
+    return;
+  }
+
+  status.innerText = "Upload successful!";
 }
 
 /* NOTIFICATIONS */
-function loadNotifications() {
-  apiFetch("/api/notifications")
-    .then(r => r.json())
-    .then(d => {
-      document.getElementById("notifList").innerHTML =
-        d.notifications.map(n => `
-          <div class="row">
-            [${n.time}] ${n.type}: ${n.message}
-          </div>
-        `).join("");
-    });
+async function loadNotifications() {
+  await loadConfig();
+
+  const data = await apiFetch("/api/notifications");
+
+  if (!data?.notifications) {
+    document.getElementById("notifList").innerHTML =
+      "Failed to load notifications";
+    return;
+  }
+
+  document.getElementById("notifList").innerHTML =
+    data.notifications.map(n => `
+      <div class="row">
+        [${n.time}] ${n.type}: ${n.message}
+      </div>
+    `).join("");
 }
 
 document.getElementById("deleteAllContentBtn")
@@ -257,9 +259,9 @@ document.getElementById("deleteAllContentBtn")
       return;
     }
 
-    const res = await fetch(
-      "/api/admin/delete-all-content",
-      {
+    const data =
+    await apiFetch("/api/admin/delete-all-content",
+    {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json"
@@ -268,13 +270,11 @@ document.getElementById("deleteAllContentBtn")
         body: JSON.stringify({ code })
       }
     );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || "Delete failed");
-      return;
-    }
+    
+    if (!data?.success) {
+  alert(data?.error || "Delete failed");
+  return;
+}
 
     alert("All content deleted.");
 
