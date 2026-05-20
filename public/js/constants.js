@@ -3,9 +3,9 @@ window.state = {
   queue: [],
   currentId: null,
   isPlaying: false,
-  library: JSON.parse(localStorage.getItem("library")) || [],
-  libraryPlaylists: JSON.parse(localStorage.getItem("libraryPlaylists")) || [],
-  customPlaylists: JSON.parse(localStorage.getItem("customPlaylists")) || [],
+  library: [],
+libraryPlaylists: [],
+customPlaylists: [],
 };
 
 window.audio = document.getElementById("audio");

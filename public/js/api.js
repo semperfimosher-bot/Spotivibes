@@ -33,40 +33,6 @@ async function apiFetch(url, options = {}) {
 }
 
 // =========================
-// LOAD USER
-// =========================
-async function loadUser() {
-  const data = await apiFetch("/api/me");
-  const box = document.getElementById("userBox");
-  const avatar = document.getElementById("profileAvatar");
-
-  if (!data || !data.loggedIn) {
-    if (box) box.innerText = "Not logged in";
-    if (avatar) avatar.innerText = "?";
-    return;
-  }
-
-  const firstName = data.user.firstName || "";
-  const lastName = data.user.lastName || "";
-
-  if (box) {
-    box.innerText = `${firstName} ${lastName}`;
-  }
-
-  if (avatar) {
-    avatar.innerText =
-      `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase();
-  }
-
-data.user.profilePicture
- if (data.user.profilePicture && avatar) {
-    avatar.innerText = "";
-    avatar.style.backgroundImage = `url('${data.user.profilePicture}')`;
-    avatar.style.backgroundSize = "cover";
-    avatar.style.backgroundPosition = "center";
-  }
-}
-// =========================
 // LOAD SONGS
 // =========================
 async function loadSongs() {
