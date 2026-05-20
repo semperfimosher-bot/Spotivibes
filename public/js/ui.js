@@ -1582,15 +1582,22 @@ openQueueBtn?.addEventListener("click", () => {
 async function loadLibrary() {
   const res = await apiFetch("/api/library");
 
-  state.library = res?.songs || [];
+  if (!res?.songs) {
+    console.warn("Library reload failed. Keeping current library.");
+    return;
+  }
 
+  state.library = res.songs;
   renderLibrary();
 }
 
 async function loadSavedPlaylists() {
   const res = await apiFetch("/api/playlists");
 
-  if (!res?.playlists) return;
+  if (!res?.playlists) {
+    console.warn("Playlist reload failed. Keeping current playlists.");
+    return;
+  }
 
   const fullPlaylists = [];
 
@@ -1604,14 +1611,19 @@ async function loadSavedPlaylists() {
         type: details.playlist.is_generated ? "generated" : "playlist",
         songs: details.songs
       });
+    } else {
+      console.warn("Failed to load playlist details:", p.id);
     }
   }
 
   state.libraryPlaylists = fullPlaylists;
-state.customPlaylists = fullPlaylists.filter(p => p.type !== "generated");
+  state.customPlaylists = fullPlaylists.filter(
+    p => p.type !== "generated"
+  );
 
   renderLibrary();
 }
+
 async function loadUser() {
   try {
     const data = await apiFetch("/api/me");

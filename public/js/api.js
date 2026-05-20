@@ -11,17 +11,27 @@ async function apiFetch(url, options = {}) {
       ...options,
     });
 
+    const text = await res.text();
+
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = { error: text };
+    }
+
     if (!res.ok) {
-      console.error("API error:", url, res.status);
+      console.error("API error:", url, res.status, data);
       return null;
     }
 
-    return await res.json();
+    return data;
   } catch (err) {
     console.error("Network error:", url, err);
     return null;
   }
 }
+
 // =========================
 // LOAD USER
 // =========================
