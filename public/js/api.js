@@ -46,19 +46,9 @@ async function loadUser() {
   if (avatar) {
     avatar.innerText =
       `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase();
-      const savedPic = localStorage.getItem("profilePic");
-
-if (savedPic) {
-  avatar.innerText = "";
-
-  avatar.style.backgroundImage =
-    `url('${savedPic}')`;
-
-  avatar.style.backgroundSize = "cover";
-  avatar.style.backgroundPosition = "center";
-}
   }
 
+data.user.profilePicture
  if (data.user.profilePicture && avatar) {
     avatar.innerText = "";
     avatar.style.backgroundImage = `url('${data.user.profilePicture}')`;

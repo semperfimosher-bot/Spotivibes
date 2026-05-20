@@ -6,10 +6,8 @@ const path = require("path");
 const session = require("express-session");
 const PgSession = require("connect-pg-simple")(session);
 const rateLimit = require("express-rate-limit");
-
 const pool = require("./database");
 const initDB = require("./db/initDB");
-
 const configRoutes = require("./routes/config.routes");
 const authRoutes = require("./routes/auth.routes");
 const libraryRoutes = require("./routes/library.routes");
@@ -17,6 +15,7 @@ const songRoutes = require("./routes/song.routes");
 const adminRoutes = require("./routes/admin.routes");
 const playlistRoutes = require("./routes/playlist.routes");
 const usersRoutes = require("./routes/users.routes");
+const statsRoutes = require("./routes/stats.routes");
 
 const app = express();
 
@@ -47,7 +46,12 @@ app.use(session({
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
 app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 app.use("/api/", rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -65,6 +69,7 @@ app.use("/api", songRoutes);
 app.use("/api", adminRoutes);
 app.use("/api/playlists", playlistRoutes);
 app.use("/api/users", usersRoutes);
+app.use("/api/listening-stats", statsRoutes);
 
 app.get("/ping", (req, res) => {
   res.status(200).send("OK");

@@ -581,27 +581,17 @@ function createSidebarPlaylistRow(playlist) {
   row.querySelector(".remove-playlist-btn")
   ?.addEventListener("click", () => {
 
-    state.libraryPlaylists =
-      state.libraryPlaylists.filter(
-        p => p.name !== playlist.name
-      );
+   row.querySelector(".remove-playlist-btn")
+  ?.addEventListener("click", async () => {
+    await apiFetch("/api/playlists/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playlistId: playlist.id })
+    });
 
-    state.customPlaylists =
-      state.customPlaylists.filter(
-        p => p.name !== playlist.name
-      );
-
-    localStorage.setItem(
-      "libraryPlaylists",
-      JSON.stringify(state.libraryPlaylists)
-    );
-
-    localStorage.setItem(
-      "customPlaylists",
-      JSON.stringify(state.customPlaylists)
-    );
-
+    await loadSavedPlaylists();
     renderLibrary();
+  });
   });
 
   row.querySelector(".download-playlist-btn")
@@ -890,53 +880,49 @@ document.addEventListener("click", (e) => {
 // RENDER FUNCTIONS
 // ==========================
 
-function renderListeningStats() {
+async function renderListeningStats() {
   const list = document.getElementById("artistStatsList");
   if (!list) return;
 
-  const stats =
-    JSON.parse(localStorage.getItem("listeningStats")) || {};
+  const data = await apiFetch("/api/listening-stats");
+  const stats = data?.stats || {};
 
   list.innerHTML = "";
 
   const artists = Object.keys(stats);
 
   if (!artists.length) {
-    list.innerHTML =
-      "<p style='color:#b3b3b3'>No listening stats yet.</p>";
+    list.innerHTML = "<p style='color:#b3b3b3'>No listening stats yet.</p>";
     return;
   }
 
-  artists.forEach(artist => {
-    const totalPlays = Object.values(stats[artist])
-      .reduce((sum, count) => sum + count, 0);
+  artists
+    .sort((a, b) => {
+      const totalA = Object.values(stats[a]).reduce((sum, count) => sum + count, 0);
+      const totalB = Object.values(stats[b]).reduce((sum, count) => sum + count, 0);
+      return totalB - totalA;
+    })
+    .forEach(artist => {
+      const totalPlays = Object.values(stats[artist]).reduce((sum, count) => sum + count, 0);
 
-    const row = document.createElement("div");
-    row.className = "row";
+      const row = document.createElement("div");
+      row.className = "row";
 
-    row.innerHTML = `
-      <div>
-        <div style="color:white">${artist}</div>
-        <div style="color:#b3b3b3;font-size:12px">
-          ${totalPlays} total plays
+      row.innerHTML = `
+        <div>
+          <div style="color:white">${artist}</div>
+          <div style="color:#b3b3b3;font-size:12px">${totalPlays} total plays</div>
         </div>
-      </div>
-    `;
+      `;
 
-    row.addEventListener("click", () => {
-      renderArtistSongStats(artist);
+      row.addEventListener("click", () => renderArtistSongStats(artist, stats));
+      list.appendChild(row);
     });
-
-    list.appendChild(row);
-  });
 }
 
-function renderArtistSongStats(artist) {
+function renderArtistSongStats(artist, stats) {
   const list = document.getElementById("artistStatsList");
   if (!list) return;
-
-  const stats =
-    JSON.parse(localStorage.getItem("listeningStats")) || {};
 
   const songs = stats[artist] || {};
 
@@ -945,26 +931,27 @@ function renderArtistSongStats(artist) {
     <h2>${artist}</h2>
   `;
 
-  Object.entries(songs).forEach(([title, count]) => {
-    const row = document.createElement("div");
-    row.className = "row";
+  Object.entries(songs)
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([title, count]) => {
+      const row = document.createElement("div");
+      row.className = "row";
 
-    row.innerHTML = `
-      <div>
-        <div style="color:white">${title}</div>
-        <div style="color:#b3b3b3;font-size:12px">
-          Played ${count} time${count === 1 ? "" : "s"}
+      row.innerHTML = `
+        <div>
+          <div style="color:white">${title}</div>
+          <div style="color:#b3b3b3;font-size:12px">
+            Played ${count} time${count === 1 ? "" : "s"}
+          </div>
         </div>
-      </div>
-    `;
+      `;
 
-    list.appendChild(row);
-  });
+      list.appendChild(row);
+    });
 
-  document
-    .getElementById("backToArtistsBtn")
-    ?.addEventListener("click", renderListeningStats);
+  document.getElementById("backToArtistsBtn")?.addEventListener("click", renderListeningStats);
 }
+
   function renderListeningStats() {
   const list = document.getElementById("artistStatsList");
   if (!list) return;
@@ -1230,7 +1217,7 @@ function openSongMenu(song, button) {
   });
 
   menu.querySelectorAll(".playlist-choice").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const playlist = state.customPlaylists.find(
         p => p.name === btn.dataset.name
       );
@@ -1241,17 +1228,18 @@ function openSongMenu(song, button) {
         s => String(s.id) === String(song.id)
       );
 
-      if (!exists) {
-        playlist.songs.push(song);
-      }
+      await apiFetch("/api/playlists/add-song", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    playlistName: playlist.name,
+    songId: song.id
+  })
+});
 
-      localStorage.setItem(
-        "customPlaylists",
-        JSON.stringify(state.customPlaylists)
-      );
-
-      renderLibrary();
-      closeSongMenu();
+await loadSavedPlaylists();
+renderLibrary();
+closeSongMenu();
     });
   });
 }
@@ -1487,7 +1475,7 @@ buttons.forEach(btn => {
 
     cancelBtn.onclick = closeModal;
 
-    saveBtn.onclick = () => {
+    saveBtn.onclick = async () => {
 
       const name = input.value.trim();
 
@@ -1507,12 +1495,14 @@ buttons.forEach(btn => {
         songs: []
       };
 
-      state.customPlaylists.push(playlist);
+     await apiFetch("/api/playlists/custom", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name })
+});
 
-      localStorage.setItem(
-        "customPlaylists",
-        JSON.stringify(state.customPlaylists)
-      );
+await loadSavedPlaylists();
+renderLibrary();
 
       renderLibrary();
 
