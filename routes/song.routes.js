@@ -343,6 +343,11 @@ router.delete("/songs/:id", requireAdmin, async (req, res) => {
         );
       }
     }
+    
+    await pool.query(
+      "DELETE FROM playlist_songs WHERE song_id = $1",
+      [req.params.id]
+    );
 
     await pool.query(
       "DELETE FROM songs WHERE id = $1",
