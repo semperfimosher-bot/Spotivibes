@@ -24,7 +24,7 @@ const DELETE_ALL_CODE = process.env.DELETE_ALL_CODE || "2009";
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 250 * 1024 * 1024
+    fileSize: 50 * 1024 * 1024
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [

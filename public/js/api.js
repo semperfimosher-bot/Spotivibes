@@ -35,16 +35,48 @@ async function apiFetch(url, options = {}) {
 // =========================
 // LOAD SONGS
 // =========================
-async function loadSongs() {
-  const data = await apiFetch("/api/songs");
+let songsOffset = 0;
+let songsLoading = false;
+let songsHasMore = true;
+
+async function loadSongs(reset = true) {
+  if (songsLoading) return;
+
+  songsLoading = true;
+
+  if (reset) {
+    songsOffset = 0;
+    songsHasMore = true;
+    state.songs = [];
+  }
+
+  const data = await apiFetch(`/api/songs?limit=50&offset=${songsOffset}`);
+
+  songsLoading = false;
 
   if (!data) {
     console.warn("Failed to load songs");
     return;
   }
 
-  state.songs = data.songs || [];
+  state.songs = reset
+    ? data.songs || []
+    : [...state.songs, ...(data.songs || [])];
+
+  songsOffset += data.songs?.length || 0;
+  songsHasMore = data.hasMore;
+
   renderHome();
+}
+
+async function loadMoreSongs() {
+  if (!songsHasMore || songsLoading) return;
+  await loadSongs(false);
+}
+
+async function getAudioUrl(songId) {
+  const data = await apiFetch(`/api/songs/${songId}/audio-url`);
+  return data?.audioUrl || null;
 }
 
 // =========================

@@ -5,11 +5,67 @@ let shuffleMode = false;
 
 const LAST_PLAYBACK_KEY = "spotivibes_last_playback";
 
+const audioUrlCache = new Map();
+
+async function getCachedAudioUrl(songId) {
+  if (audioUrlCache.has(songId)) {
+    return audioUrlCache.get(songId);
+  }
+
+  const url = await getAudioUrl(songId);
+
+  if (url) {
+    audioUrlCache.set(songId, url);
+  }
+
+  return url;
+}
+async function getCachedAudioUrl(songId) {
+  if (audioUrlCache.has(songId)) {
+    return audioUrlCache.get(songId);
+  }
+
+  const url = await getAudioUrl(songId);
+
+  if (url) {
+    audioUrlCache.set(songId, url);
+  }
+
+  return url;
+}
+
+async function preloadNextTwoSongs() {
+  const i = state.songs.findIndex(
+    s => String(s.id) === String(state.currentId)
+  );
+
+  if (i === -1) return;
+
+  const next1 = state.songs[i + 1];
+  const next2 = state.songs[i + 2];
+
+  if (next1) {
+    const url1 = await getCachedAudioUrl(next1.id);
+    if (url1) {
+      preloadAudio1.src = url1;
+      preloadAudio1.load();
+    }
+  }
+
+  if (next2) {
+    const url2 = await getCachedAudioUrl(next2.id);
+    if (url2) {
+      preloadAudio2.src = url2;
+      preloadAudio2.load();
+    }
+  }
+}
+
 function getSong(id) {
   return state.songs.find(s => String(s.id) === String(id));
 }
 
-function playSong(id) {
+async function playSong(id) {
   const song = getSong(id);
   if (!song) return;
 
@@ -21,7 +77,11 @@ function playSong(id) {
   localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
 );
 
-audio.src = song.audioUrl;
+const audioUrl = await getCachedAudioUrl(song.id);
+if (!audioUrl) return;
+
+audio.src = audioUrl;
+audio.load();
 
 audio.addEventListener("loadedmetadata", function restoreTime() {
   audio.removeEventListener("loadedmetadata", restoreTime);
@@ -69,6 +129,8 @@ if (miniAlbumArt) {
   highlightCurrentSong?.();
 }
 
+preloadNextTwoSongs();
+
 function togglePlay() {
   if (!audio.src) {
     if (state.currentId) playSong(state.currentId);
@@ -99,7 +161,7 @@ function updatePlayButton() {
   }
 }
 
-function nextSong() {
+async function nextSong() {
   if (repeatMode && state.currentId) {
     audio.currentTime = 0;
     audio.play();
@@ -108,22 +170,8 @@ function nextSong() {
 
   if (state.queue.length) {
     const next = state.queue.shift();
-    playSong(next.id);
+    await playSong(next.id);
     renderQueue?.();
-    return;
-  }
-
-  if (shuffleMode) {
-    const otherSongs = state.songs.filter(
-      s => String(s.id) !== String(state.currentId)
-    );
-
-    if (!otherSongs.length) return;
-
-    const randomSong =
-      otherSongs[Math.floor(Math.random() * otherSongs.length)];
-
-    playSong(randomSong.id);
     return;
   }
 
@@ -132,9 +180,17 @@ function nextSong() {
   );
 
   if (i < state.songs.length - 1) {
-    playSong(state.songs[i + 1].id);
+    await playSong(state.songs[i + 1].id);
+    return;
+  }
+
+  await loadMoreSongs();
+
+  if (state.songs[i + 1]) {
+    await playSong(state.songs[i + 1].id);
   }
 }
+
 function prevSong() {
   const i = state.songs.findIndex(
     s => s.id === state.currentId
@@ -479,7 +535,7 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function restoreLastPlayback() {
+async function restoreLastPlayback() {
   const saved = JSON.parse(
     localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
   );
@@ -516,7 +572,15 @@ function restoreLastPlayback() {
   updatePlayButton();
 
   // audio loads after UI
-  audio.src = song.audioUrl;
+  const audioUrl = await getCachedAudioUrl(song.id);
+
+if (!audioUrl) {
+  console.error("No audio URL found for song:", song);
+  return;
+}
+
+audio.src = audioUrl;
+audio.load();
 
   audio.addEventListener("loadedmetadata", function restoreTime() {
     audio.removeEventListener("loadedmetadata", restoreTime);
@@ -536,3 +600,8 @@ async function trackListeningStats(song) {
     body: JSON.stringify({ songId: song.id })
   });
 }
+window.playSong = playSong;
+window.nextSong = nextSong;
+window.prevSong = prevSong;
+window.togglePlay = togglePlay;
+window.restoreLastPlayback = restoreLastPlayback;

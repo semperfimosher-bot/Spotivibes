@@ -35,8 +35,8 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 200 * 1024 * 1024,
-    files: 100
+    fileSize: 50 * 1024 * 1024,
+    files: 50
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -60,9 +60,21 @@ const upload = multer({
 
 router.get("/songs", requireLogin, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM songs ORDER BY id DESC");
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
 
-    const songsWithUrls = await Promise.all(
+    const result = await pool.query(
+      `
+      SELECT 
+        id, title, artist, genre, album, mood, year, duration, cover_url
+      FROM songs
+      ORDER BY id DESC
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset]
+    );
+
+    const songs = await Promise.all(
       result.rows.map(async (s) => ({
         id: s.id,
         title: s.title,
@@ -71,16 +83,43 @@ router.get("/songs", requireLogin, async (req, res) => {
         album: s.album,
         mood: s.mood,
         year: s.year,
-        lyrics: s.lyrics,
-        audioUrl: await getFileUrl(s.audio_url),
+        duration: s.duration,
         coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null
       }))
     );
 
-    res.json({ songs: songsWithUrls });
+    res.json({
+      songs,
+      limit,
+      offset,
+      hasMore: songs.length === limit
+    });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("LOAD SONGS ERROR:", err);
+    res.status(500).json({ error: "Failed to load songs" });
+  }
+});
+
+router.get("/songs/:id/audio-url", requireLogin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT audio_url FROM songs WHERE id = $1",
+      [req.params.id]
+    );
+
+    const song = result.rows[0];
+
+    if (!song) {
+      return res.status(404).json({ error: "Song not found" });
+    }
+
+    const audioUrl = await getFileUrl(song.audio_url);
+
+    res.json({ audioUrl });
+  } catch (err) {
+    console.error("AUDIO URL ERROR:", err);
+    res.status(500).json({ error: "Failed to get audio URL" });
   }
 });
 

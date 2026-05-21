@@ -97,6 +97,35 @@ await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS genre TEXT`);
   await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS is_generated BOOLEAN DEFAULT false`);
   await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
 
+ await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_id_desc
+  ON songs (id DESC)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_title_lower
+  ON songs (LOWER(title))
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_artist
+  ON songs (LOWER(artist))
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_album_lower
+  ON songs (LOWER(album))
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist_id
+  ON playlist_songs (playlist_id)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_playlists_user_id
+  ON playlists (user_id)
+`);
 }
 
 module.exports = initDB;

@@ -974,7 +974,7 @@ function renderHome() {
   return;
 }
 
-  songs.forEach(s => recent.appendChild(createSongCard(s)));
+  songs.slice(0, 100).forEach(s => recent.appendChild(createSongCard(s)));
   songs.slice(0, 8).forEach(s => top.appendChild(createCompactSongRow(s)));
 
   highlightCurrentSong();
