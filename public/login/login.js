@@ -1,35 +1,69 @@
 const loginForm = document.getElementById("loginForm");
+const registerBtn = document.getElementById("registerBtn");
+
+async function ensureConfigLoaded() {
+  if (typeof loadConfig === "function") {
+    await loadConfig();
+  }
+}
 
 loginForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
+
+  await ensureConfigLoaded();
 
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
   try {
-    const res = await fetch("/api/login", {
+    const data = await apiFetch("/api/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      credentials: "include",
+      body: JSON.stringify({ email, password })
+    });
+
+    if (data?.success) {
+      window.location.href = "/app";
+    } else {
+      alert(data?.error || "Login failed");
+    }
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    alert(err.message || "Login failed");
+  }
+});
+
+registerBtn?.addEventListener("click", async () => {
+  await ensureConfigLoaded();
+
+  const firstName = document.getElementById("firstName").value.trim();
+  const lastName = document.getElementById("lastName").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  try {
+    const data = await apiFetch("/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify({
+        firstName,
+        lastName,
         email,
         password
       })
     });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.error || "Login failed");
-      return;
+    if (data?.success) {
+      window.location.href = "/app";
+    } else {
+      alert(data?.error || "Register failed");
     }
-
-    window.location.href = "/app";
-
   } catch (err) {
-    console.error("LOGIN ERROR:", err);
-    alert("Network error");
+    console.error("REGISTER ERROR:", err);
+    alert(err.message || "Register failed");
   }
 });
