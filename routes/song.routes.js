@@ -369,11 +369,6 @@ router.delete("/songs/:id", requireAdmin, async (req, res) => {
         );
       }
     }
-    
-    await pool.query(
-      "DELETE FROM playlist_songs WHERE song_id = $1",
-      [req.params.id]
-    );
 
     await pool.query(
   "DELETE FROM playlist_songs WHERE song_id = $1",
@@ -450,7 +445,6 @@ router.get("/smart-search", requireLogin, async (req, res) => {
         mood: s.mood,
         lyrics: s.lyrics,
         year: s.year,
-        audioUrl: await getFileUrl(s.audio_url),
         coverUrl: s.cover_url
           ? await getFileUrl(s.cover_url)
           : null

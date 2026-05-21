@@ -128,10 +128,17 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-  if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+if (require.main === module) {
+  initDB()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Database init failed:", err);
+      process.exit(1);
+    });
 }
 
 module.exports = app;
