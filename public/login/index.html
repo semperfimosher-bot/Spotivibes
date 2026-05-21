@@ -144,80 +144,60 @@
   <h1>Spoti<span class="accent">vibes</span></h1>
   <p class="subtitle">Your music, your playlists, your vibe.</p>
 
-  <input id="firstName" placeholder="First Name">
-  <input id="lastName" placeholder="Last Name">
-  <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Password">
+  <form id="loginForm">
+
+  <input
+    id="firstName"
+    placeholder="First Name"
+    autocomplete="given-name"
+  >
+
+  <input
+    id="lastName"
+    placeholder="Last Name"
+    autocomplete="family-name"
+  >
+
+  <input
+    id="email"
+    type="email"
+    placeholder="Email"
+    autocomplete="email"
+  >
+
+  <input
+    id="password"
+    type="password"
+    placeholder="Password"
+    autocomplete="current-password"
+  >
 
   <div class="actions">
-   <button class="secondary" id="registerBtn">Create</button>
-<button class="primary" id="loginBtn">Login</button>
+    <button
+      type="button"
+      class="secondary"
+      id="registerBtn"
+    >
+      Create
+    </button>
+
+    <button
+      type="submit"
+      class="primary"
+      id="loginBtn"
+    >
+      Login
+    </button>
   </div>
+
+</form>
 </div>
 
 <script src="/js/config.js"></script>
 <script src="/js/constants.js"></script>
 <script src="/js/api.js"></script>
 
-<script>
+<script src="/login/login.js"></script>
 
-async function login() {
-  await loadConfig();
-
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  if (!email || !password) {
-    alert("Please fill in email and password");
-    return;
-  }
-
-  const data = await apiFetch("/api/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ email, password })
-  });
-
-  if (data?.success) {
-    window.location.href = "/";
-  } else {
-    alert(data?.error || "Login failed");
-  }
-}
-
-async function register() {
-  await loadConfig();
-
-  const firstName = document.getElementById("firstName").value;
-  const lastName = document.getElementById("lastName").value;
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-
-  const data = await apiFetch("/api/register", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      firstName,
-      lastName,
-      email,
-      password
-    })
-  });
-
-  if (data?.success) {
-    window.location.href = "/";
-  } else {
-    alert(data?.error || "Register failed");
-  }
-}
-
-document.getElementById("loginBtn").addEventListener("click", login);
-document.getElementById("registerBtn").addEventListener("click", register);
-
-</script>
 </body>
 </html>

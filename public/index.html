@@ -1,272 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spotivibes</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="css/main.css">
+  <title>Spotivibes - Your Music, Your Vibe</title>
+
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/landing.css" />
+  <meta name="theme-color" content="#004cff" />
 </head>
 
 <body>
+  <main class="hero">
+    <nav class="nav">
+      <img src="/assets/logo.png" alt="Spotivibes" />
+      <a href="/login">Login</a>
+    </nav>
 
-  <!-- APP WRAPPER -->
-  <div id="app">
+    <section class="hero-content">
+      <div class="badge">Private music streaming for your circle</div>
 
-    <!-- LEFT SIDEBAR -->
-    <aside id="sidebar-left">
+      <h1>Stream your music with your own vibe.</h1>
 
-      <div id="playlistContainer"></div>
+      <p>
+        Spotivibes is a clean, personal music player built for playlists,
+        discovery, lyrics, and a smoother way to enjoy your library.
+      </p>
 
-  <div id="sidebarLibrary">
-  <div id="libraryHeader">
-    <h3>Your Library</h3>
-    <button id="createPlaylistBtn">＋</button>
-  </div>
+      <div class="buttons">
+        <button id="installBtn" class="primary hidden">
+          Install App
+        </button>
 
-  <div id="sidebarLibraryList"></div>
-</div>
-
-    </aside>
-
-    <!-- CENTER AREA -->
-    <main id="main">
-      
-      <header id="appHeader">
-
-        <div id="topLogo">
-           <img src="assets/logo.png" alt="Spotivibes Logo">
-        </div>
-
-  <div id="searchBarWrapper">
-    <input
-      id="searchBar"
-      placeholder="Search songs..."
-      data-ui="search-input"
-    />
-
-    <div id="searchDropdown" class="search-dropdown hidden"></div>
-  </div>
-
- <div id="profileBox">
-  <div id="profileAvatar">?</div>
-  <div id="userBox">Loading...</div>
-
-  <div id="profileMenu" class="hidden">
-    <button id="uploadProfilePicBtn">Upload Profile Picture</button>
-    <button id="openStatsBtn">Listening Stats</button>
-    <button id="profileLogoutBtn">Logout</button>
-  </div>
-
-  <input
-    id="profilePicInput"
-    type="file"
-    accept="image/*"
-    class="hidden"
-  />
-</div>
-</header>
-
-      <section id="homeView" class="view">
-        <div id="topSongsGrid"></div>
-
-        <h2>Recently Uploaded</h2>
-        <div id="recentGrid"></div>
-      </section>
-
-      <section id="libraryView" class="view hidden">
-  <div id="mobileLibraryHeader">
-    <h2>Your Library</h2>
-    <button id="mobileCreatePlaylistBtn">＋</button>
-  </div>
-
-  <div id="libraryList"></div>
-</section>
-
-<section id="queueView" class="view hidden">
-        <h2>Queue</h2>
-        <div id="queueList"></div>
-      </section>
-
-      <section id="statsView" class="view hidden">
-        <h2>Listening Stats</h2>
-        <div id="artistStatsList"></div>
-      </section>
-
-      <section id="mobileSearchView" class="view hidden">
-  <div id="mobileSearchWrapper">
-    <input
-      id="mobileSearchBar"
-      placeholder="Search songs..."
-      autocomplete="off"
-    />
-
-    <div id="mobileSearchResults"></div>
-    <div id="mobileRecentSearches"></div>
-  </div>
-</section>
-
-    </main>
-
-    <!-- RIGHT SIDEBAR -->
-    <aside id="sidebar-right">
-
-      <div id="nowPlayingCard">
-        <div id="albumArt"></div>
-        <div id="nowPlayingText">Not Playing</div>
+        <a class="secondary" href="/app">
+          Open Web Player
+        </a>
       </div>
 
-      <div id="lyricsBox">
-        <h3>Lyrics</h3>
-        <pre id="lyricsText">No lyrics loaded</pre>
-      </div>
+      <p class="small">
+        Android, Windows, and macOS install support through PWA.
+        iPhone support works through Safari Add to Home Screen.
+      </p>
+    </section>
+  </main>
 
-    </aside>
-
-  </div>
-
-  <!-- DESKTOP PLAYER BAR -->
-  <header id="playerBar">
-
-    <div id="playerControls">
-      <button id="shuffleBtn">🔀</button>
-      <button id="prevBtn">⏮</button>
-      <button id="playBtn">▶</button>
-      <button id="nextBtn">⏭</button>
-      <button id="repeatBtn">🔁</button>
-    </div>
-
-    <div id="bottomNav">
-
-  <button data-page="home" class="bottom-nav-btn">
-  <img src="assets/icons/home.svg">
-</button>
-
-  <button id="desktopMoreBtn" class="bottom-nav-btn">
-    <img src="assets/icons/more.svg">
-  </button>
-
-</div>
-
-    <div id="progressWrapper">
-
-      <span id="currentTime">0:00</span>
-
-      <input
-        id="progressBar"
-        type="range"
-        min="0"
-        max="100"
-        value="0"
-      />
-
-      <span id="duration">0:00</span>
-
-      <div id="progressTooltip"></div>
-    </div>
-
-  </header>
-
-  <!-- MOBILE NAV -->
-  <div id="mobileNav">
-    <button data-page="home">
-      <img src="assets/icons/home.svg">
-      <span>Home</span>
-    </button>
-
-    <button data-page="mobileSearch">
-      <img src="assets/icons/search.svg">
-      <span>Search</span>
-    </button>
-
-    <button data-page="library">
-      <img src="assets/icons/library.svg">
-      <span>Library</span>
-    </button>
-
-<button id="mobileMoreBtn">
-  <img src="assets/icons/more.svg">
-  <span>More</span>
-</button>
-  </div>
-
-  <!-- MORE SHEET -->
-  <div id="moreSheet" class="hidden">
-    <button id="openQueue">Queue</button>
-    <button id="openInfo">Song Info</button>
-  </div>
-
-  <div id="songInfoModal" class="hidden">
-  <div id="songInfoCard">
-    <button id="closeSongInfo">×</button>
-    <h2>Song Info</h2>
-    <div id="songInfoContent"></div>
-  </div>
-</div>
-
-  <!-- MOBILE MINI PLAYER -->
-  <div id="miniPlayer">
-
-    <div id="miniLeft">
-
-      <div id="miniAlbumArt"></div>
-
-      <div id="miniMeta">
-        <div id="miniInfo">Not Playing</div>
-
-        <!-- MOBILE PROGRESS BAR -->
-        <input
-          id="miniProgressBar"
-          type="range"
-          min="0"
-          max="100"
-          value="0"
-        />
-      </div>
-
-    </div>
-
-    <div id="miniControls">
-
-  <button id="mobileShuffleBtn">🔀</button>
-
-  <button id="miniPrevBtn">⏮</button>
-
-  <button id="miniPlayBtn">▶</button>
-
-  <button id="miniNextBtn">⏭</button>
-
-  <button id="mobileRepeatBtn">🔁</button>
-
-</div>
-
-  </div>
-
-  <!-- AUDIO ENGINE -->
-  <audio id="audio"></audio>
-
-  <!-- JS ORDER -->
-  <script src="js/config.js"></script>
-  <script src="js/constants.js"></script>
-  <script src="js/api.js"></script>
-   <script src="js/player.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/router.js"></script>
-  <script src="js/app.js"></script>
-
-  
-  <div id="playlistModal" class="hidden">
-  <div id="playlistModalCard">
-    <h2>Create Playlist</h2>
-    <input id="playlistNameInput" placeholder="My Playlist" />
-
-    <div id="playlistModalActions">
-      <button id="cancelPlaylistBtn">Cancel</button>
-      <button id="savePlaylistBtn">Create</button>
-    </div>
-  </div>
-</div>
-
+  <script src="/landing.js"></script>
 </body>
 </html>

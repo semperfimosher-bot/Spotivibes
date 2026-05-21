@@ -26,20 +26,28 @@ if (process.env.SENTRY_DSN) {
 }
 
 const app = express();
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        imgSrc: ["'self'", "data:", "blob:", "https:"],
-        mediaSrc: ["'self'", "https:"],
-        connectSrc: ["'self'", process.env.FRONTEND_URL || "'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-      },
-    },
-  })
-);
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: [
+        "'self'",
+        "https://s3.us-east-005.backblazeb2.com"
+      ],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://s3.us-east-005.backblazeb2.com"
+      ],
+      mediaSrc: [
+        "'self'",
+        "blob:",
+        "https://s3.us-east-005.backblazeb2.com"
+      ]
+    }
+  }
+}));
 
 app.set("trust proxy", 1);
 
@@ -77,6 +85,10 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/app", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "app", "index.html"));
 });
 
 app.use("/api/login", rateLimit({
