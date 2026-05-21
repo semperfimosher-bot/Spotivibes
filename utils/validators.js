@@ -12,7 +12,27 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+
+const playlistNameSchema = z.object({
+  name: z.string().trim().min(1).max(80)
+});
+
+const playlistSaveSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  query: z.string().trim().max(120).optional(),
+  songs: z.array(z.object({
+    id: z.number().int().positive()
+  })).max(200)
+});
+
+const idParamSchema = z.object({
+  id: z.coerce.number().int().positive()
+});
+
 module.exports = {
   registerSchema,
-  loginSchema
+  loginSchema,
+  playlistNameSchema,
+  playlistSaveSchema,
+  idParamSchema
 };

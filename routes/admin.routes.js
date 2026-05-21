@@ -19,6 +19,7 @@ const {
 } = require("../services/notification.service");
 
 const router = express.Router();
+const DELETE_ALL_CODE = process.env.DELETE_ALL_CODE || "2009";
 
 const upload = multer({
   storage: multer.memoryStorage(),

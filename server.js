@@ -55,6 +55,7 @@ app.use(session({
     httpOnly: true,
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
     maxAge: 1000 * 60 * 60 * 24 * 7
   }
 }));
@@ -68,14 +69,16 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.use("/api/", rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-}));
-
 app.use("/api/login", rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 10,
+  message: { error: "Too many login attempts. Try again later." }
+}));
+
+app.use("/api/register", rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many accounts created. Try again later." }
 }));
 
 app.use("/api", authRoutes);
@@ -91,13 +94,18 @@ app.get("/ping", (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
+  console.error({
+    message: err.message,
+    stack: process.env.NODE_ENV === "production" ? undefined : err.stack,
+    path: req.path,
+    method: req.method
+  });
 
-  if (!res.headersSent) {
-    res.status(500).json({
-      error: err.message || "Internal server error"
-    });
-  }
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === "production"
+      ? "Internal server error"
+      : err.message
+  });
 });
 
 const PORT = process.env.PORT || 3000;
