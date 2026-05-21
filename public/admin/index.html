@@ -276,33 +276,30 @@ async function loadNotifications() {
 
 document.getElementById("deleteAllContentBtn")
   ?.addEventListener("click", async () => {
+    const code = prompt("Enter delete code:");
 
     if (code !== "2009") {
       alert("Wrong code.");
       return;
     }
 
-    const data =
-    await apiFetch("/api/admin/delete-all-content",
-    {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        credentials: "include",
-        body: JSON.stringify({ code })
-      }
-    );
-    
+    const data = await apiFetch("/api/admin/delete-all-content", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify({ code })
+    });
+
     if (!data?.success) {
-  alert(data?.error || "Delete failed");
-  return;
-}
+      alert(data?.error || "Delete failed");
+      return;
+    }
 
     alert("All content deleted.");
-
     location.reload();
-});
+  });
 
 loadSongs();
 

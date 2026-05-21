@@ -47,6 +47,8 @@ router.post("/custom", requireLogin, async (req, res) => {
 });
 
 router.post("/remove", requireLogin, async (req, res) => {
+  const client = await pool.connect();
+
   try {
     const { playlistId } = req.body;
 
@@ -54,26 +56,44 @@ router.post("/remove", requireLogin, async (req, res) => {
       return res.status(400).json({ error: "Missing playlistId" });
     }
 
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    const ownerCheck = await client.query(
       `
-      DELETE FROM playlists
+      SELECT id
+      FROM playlists
       WHERE id = $1
       AND user_id = $2
-      RETURNING id
       `,
       [playlistId, req.session.user.id]
     );
 
-    if (!result.rows.length) {
+    if (!ownerCheck.rows.length) {
+      await client.query("ROLLBACK");
       return res.status(404).json({
         error: "Playlist not found or not owned by user"
       });
     }
 
-    res.json({ success: true, deletedId: result.rows[0].id });
+    await client.query(
+      "DELETE FROM playlist_songs WHERE playlist_id = $1",
+      [playlistId]
+    );
+
+    await client.query(
+      "DELETE FROM playlists WHERE id = $1 AND user_id = $2",
+      [playlistId, req.session.user.id]
+    );
+
+    await client.query("COMMIT");
+
+    res.json({ success: true, deletedId: playlistId });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("REMOVE PLAYLIST ERROR:", err);
     res.status(500).json({ error: "Failed to remove playlist" });
+  } finally {
+    client.release();
   }
 });
 
