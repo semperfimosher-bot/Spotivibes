@@ -383,11 +383,12 @@ async function handleSearch(e) {
 
   saveRecentSearch(query);
 
+ try {
   const res = await apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`);
-
-  if (!res) return;
-
   renderSmartSearchResults(res);
+} catch (err) {
+  console.warn("Search failed:", err.message);
+}
 }
 
 // ==========================

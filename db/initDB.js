@@ -4,6 +4,10 @@ const pool = require("../database");
 async function initDB() {
 
   await pool.query(`
+  CREATE EXTENSION IF NOT EXISTS pg_trgm
+`);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       first_name TEXT,
@@ -128,10 +132,6 @@ await pool.query(`
 `);
 
 await pool.query(`
-  CREATE EXTENSION IF NOT EXISTS pg_trgm
-`);
-
-await pool.query(`
   CREATE INDEX IF NOT EXISTS idx_songs_title_trgm
   ON songs USING gin (title gin_trgm_ops)
 `);
@@ -146,6 +146,17 @@ await pool.query(`
   ON songs USING gin (album gin_trgm_ops)
 `);
 
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_genre_trgm
+  ON songs USING gin (genre gin_trgm_ops)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_combined_search_trgm
+  ON songs USING gin (
+    (COALESCE(title, '') || ' ' || COALESCE(artist, '') || ' ' || COALESCE(album, '') || ' ' || COALESCE(genre, '')) gin_trgm_ops
+  )
+`);
 }
 
 module.exports = initDB;

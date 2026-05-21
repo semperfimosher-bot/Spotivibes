@@ -192,8 +192,12 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
       return res.status(400).json({ error: "No files uploaded" });
     }
 
+    const results = [];
+
     for (const file of req.files) {
       const fileKey = `songs/${Date.now()}-${file.originalname}`;
+
+      try {
 
       let metadata = {};
 
@@ -310,13 +314,32 @@ fetchLyrics({
     )
   );
 
-      await addNotification(
-        "SONG_UPLOADED",
-        `Uploaded: ${file.originalname}`
-      );
-    }
+    await addNotification(
+  "SONG_UPLOADED",
+  `Uploaded: ${file.originalname}`
+);
 
-    res.json({ success: true });
+results.push({
+  filename: file.originalname,
+  success: true,
+  songId
+});
+
+    } catch (fileErr) {
+  console.error("FAILED FILE:", file.originalname, fileErr);
+
+  results.push({
+    filename: file.originalname,
+    success: false,
+    error: fileErr.message
+  });
+}
+}
+
+res.json({
+  success: true,
+  results
+});
 
   } catch (err) {
     console.error("UPLOAD SONG ERROR:", err);
@@ -409,29 +432,45 @@ router.get("/smart-search", requireLogin, async (req, res) => {
   try {
     const q = (req.query.q || "").trim();
 
-    if (!q) {
+    if (q.length > 80) {
+  return res.status(400).json({ error: "Search query too long" });
+}
+
+    if (!q || q.length < 2) {
       return res.json({
         playlists: [],
         songs: []
       });
     }
 
+    if (q.length > 80) {
+  return res.status(400).json({ error: "Search query too long" });
+}
+
     const search = `%${q}%`;
 
-    const result = await pool.query(
-      `
-      SELECT *
-      FROM songs
-      WHERE
-        LOWER(COALESCE(title, '')) LIKE LOWER($1)
-        OR LOWER(COALESCE(artist, '')) LIKE LOWER($1)
-        OR LOWER(COALESCE(genre, '')) LIKE LOWER($1)
-        OR LOWER(COALESCE(album, '')) LIKE LOWER($1)
-      ORDER BY id DESC
-      LIMIT 50
-      `,
-      [search]
-    );
+const result = await pool.query(
+  `
+  SELECT *
+  FROM songs
+  WHERE
+    (COALESCE(title, '') || ' ' || COALESCE(artist, '') || ' ' || COALESCE(album, '') || ' ' || COALESCE(genre, '')) ILIKE $1
+    OR title % $2
+    OR artist % $2
+    OR album % $2
+    OR genre % $2
+  ORDER BY
+    GREATEST(
+      similarity(COALESCE(title, ''), $2),
+      similarity(COALESCE(artist, ''), $2),
+      similarity(COALESCE(album, ''), $2),
+      similarity(COALESCE(genre, ''), $2)
+    ) DESC,
+    id DESC
+  LIMIT 50
+  `,
+  [search, q]
+);
 
     const rows = result.rows;
 

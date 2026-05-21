@@ -21,15 +21,15 @@ async function apiFetch(url, options = {}) {
     }
 
     if (!res.ok) {
-      console.error("API error:", url, res.status, data);
-      return null;
-    }
+  const message = data?.error || `Request failed with status ${res.status}`;
+  throw new Error(message);
+}
 
     return data;
   } catch (err) {
-    console.error("Network error:", url, err);
-    return null;
-  }
+  console.error("Network error:", url, err);
+  throw err;
+}
 }
 
 // =========================
@@ -50,14 +50,17 @@ async function loadSongs(reset = true) {
     state.songs = [];
   }
 
-  const data = await apiFetch(`/api/songs?limit=50&offset=${songsOffset}`);
+  let data;
 
+try {
+  data = await apiFetch(`/api/songs?limit=50&offset=${songsOffset}`);
+} catch (err) {
+  console.warn("Failed to load songs:", err.message);
   songsLoading = false;
+  return;
+}
 
-  if (!data) {
-    console.warn("Failed to load songs");
-    return;
-  }
+songsLoading = false;
 
   state.songs = reset
     ? data.songs || []
@@ -81,7 +84,14 @@ async function getAudioUrl(songId) {
     return audioUrlCache.get(songId);
   }
 
-  const data = await apiFetch(`/api/songs/${songId}/audio-url`);
+  let data;
+
+try {
+  data = await apiFetch(`/api/songs/${songId}/audio-url`);
+} catch (err) {
+  console.warn("Failed to get audio URL:", err.message);
+  return null;
+}
 
   const url = data?.audioUrl || null;
 

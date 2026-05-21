@@ -203,7 +203,7 @@ async function uploadFiles() {
     return;
   }
 
-  const batchSize = 10;
+  const batchSize = 5;
   let uploaded = 0;
 
   bar.style.width = "0%";
@@ -218,17 +218,31 @@ async function uploadFiles() {
       formData.append("songs", file);
     });
 
-    const data = await apiFetch("/api/upload-files", {
-      method: "POST",
-      body: formData
-    });
+    let data;
+
+try {
+  data = await apiFetch("/api/upload-files", {
+    method: "POST",
+    body: formData
+  });
+} catch (err) {
+  status.innerText = err.message || "Upload failed";
+  return;
+}
 
     if (!data?.success) {
-      status.innerText = `Upload failed at song ${uploaded + 1}`;
-      return;
-    }
+  status.innerText = `Upload failed at song ${uploaded + 1}`;
+  return;
+}
 
-    uploaded += batch.length;
+const failed = data.results?.filter(r => !r.success) || [];
+
+if (failed.length) {
+  console.warn("Failed uploads:", failed);
+  status.innerText = `${failed.length} file(s) failed. Check console.`;
+}
+
+uploaded += batch.length;
 
     const percent = Math.round((uploaded / files.length) * 100);
 
@@ -261,10 +275,17 @@ async function uploadBackground() {
 
   status.innerText = "Uploading...";
 
-  const data = await apiFetch("/api/upload-bg", {
+  let data;
+
+try {
+  data = await apiFetch("/api/upload-bg", {
     method: "POST",
     body: formData
   });
+} catch (err) {
+  status.innerText = err.message || "Upload failed";
+  return;
+}
 
   if (!data?.success) {
     status.innerText = data?.error || "Upload failed";
