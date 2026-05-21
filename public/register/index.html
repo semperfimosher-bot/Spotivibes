@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Spotivibes Login</title>
+  <title>Create Account - Spotivibes</title>
 
   <style>
     * {
@@ -98,17 +98,20 @@
       margin-top: 8px;
     }
 
-    button {
-      flex: 1;
-      padding: 12px;
+   button {
+  flex: 1;
+  padding: 12px;
 
-      border: none;
-      border-radius: 8px;
+  border: none;
+  border-radius: 8px;
 
-      color: white;
-      cursor: pointer;
-      font-weight: 700;
-    }
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 
     .primary {
       background: linear-gradient(135deg, #004cff, #001eff);
@@ -142,9 +145,21 @@
 
 <div class="box">
   <h1>Spoti<span class="accent">vibes</span></h1>
-  <p class="subtitle">Your music, your playlists, your vibe.</p>
+  <p class="subtitle">Create your Spotivibes account.</p>
 
   <form id="loginForm">
+
+  <input
+    id="firstName"
+    placeholder="First Name"
+    autocomplete="given-name"
+  >
+
+  <input
+    id="lastName"
+    placeholder="Last Name"
+    autocomplete="family-name"
+  >
 
   <input
     id="email"
@@ -160,14 +175,16 @@
     autocomplete="current-password"
   >
 
-  <div class="actions">
+<div class="actions">
+
   <button
     type="submit"
     class="primary"
     id="registerSubmitBtn"
   >
-    LOGIN
+    CREATE ACCOUNT
   </button>
+
 </div>
 
 </form>
@@ -177,7 +194,7 @@
 <script src="/js/constants.js"></script>
 <script src="/js/api.js"></script>
 
-<script src="/login/login.js"></script>
+<script src="/register/index.js"></script>
 
 </body>
 </html>

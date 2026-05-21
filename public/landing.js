@@ -4,19 +4,24 @@ const installBtn = document.getElementById("installBtn");
 
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
+
   deferredPrompt = event;
 
-  installBtn.classList.remove("hidden");
+  installBtn?.classList.remove("hidden");
 });
 
 installBtn?.addEventListener("click", async () => {
-  if (!deferredPrompt) return;
+  if (!deferredPrompt) {
+    window.location.href = "/app";
+    return;
+  }
 
   deferredPrompt.prompt();
 
   await deferredPrompt.userChoice;
 
   deferredPrompt = null;
+
   installBtn.classList.add("hidden");
 });
 

@@ -4,45 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Spotivibes - Your Music, Your Vibe</title>
+  <title>Spotivibes</title>
 
   <link rel="manifest" href="/manifest.json" />
   <link rel="stylesheet" href="/landing.css" />
-  <meta name="theme-color" content="#004cff" />
+  <meta name="theme-color" content="#02040a" />
 </head>
 
 <body>
-  <main class="hero">
-    <nav class="nav">
-      <img src="/assets/logo.png" alt="Spotivibes" />
-      <a href="/login">Login</a>
-    </nav>
+  <main class="landing">
 
-    <section class="hero-content">
-      <div class="badge">Private music streaming for your circle</div>
+  <button id="installBtn" class="download-btn">
+    ⬇ DOWNLOAD APP
+  </button>
 
-      <h1>Stream your music with your own vibe.</h1>
+  <a href="/login" class="login-btn">
+    LOGIN
+  </a>
 
-      <p>
-        Spotivibes is a clean, personal music player built for playlists,
-        discovery, lyrics, and a smoother way to enjoy your library.
-      </p>
-
-      <div class="buttons">
-        <button id="installBtn" class="primary hidden">
-          Install App
-        </button>
-
-        <a class="secondary" href="/app">
-          Open Web Player
-        </a>
-      </div>
-
-      <p class="small">
-        Android, Windows, and macOS install support through PWA.
-        iPhone support works through Safari Add to Home Screen.
-      </p>
-    </section>
+<a href="/register" class="create-btn">
+  CREATE ACCOUNT
+</a>
   </main>
 
   <script src="/landing.js"></script>
