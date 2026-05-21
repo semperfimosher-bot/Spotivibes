@@ -20,10 +20,6 @@ async function getCachedAudioUrl(songId) {
 
   return url;
 }
-async function getCachedAudioUrl(songId) {
-  if (audioUrlCache.has(songId)) {
-    return audioUrlCache.get(songId);
-  }
 
   const url = await getAudioUrl(songId);
 
@@ -32,7 +28,6 @@ async function getCachedAudioUrl(songId) {
   }
 
   return url;
-}
 
 async function preloadNextTwoSongs() {
   const i = state.songs.findIndex(
@@ -61,7 +56,7 @@ async function preloadNextTwoSongs() {
   }
 }
 
-function getSong(id) {
+async function getSong(id) {
   return state.songs.find(s => String(s.id) === String(id));
 }
 
@@ -131,7 +126,7 @@ if (miniAlbumArt) {
 
 preloadNextTwoSongs();
 
-function togglePlay() {
+async function togglePlay() {
   if (!audio.src) {
     if (state.currentId) playSong(state.currentId);
     return;
@@ -148,7 +143,7 @@ function togglePlay() {
   updatePlayButton();
 }
 
-function updatePlayButton() {
+async function updatePlayButton() {
   const btn = document.getElementById("playBtn");
   if (btn) {
     btn.innerText = audio.paused ? "▶" : "⏸";
@@ -191,7 +186,7 @@ async function nextSong() {
   }
 }
 
-function prevSong() {
+async function prevSong() {
   const i = state.songs.findIndex(
     s => s.id === state.currentId
   );
@@ -268,7 +263,7 @@ document.getElementById("mobileRepeatBtn")
 
 let progressRAF = null;
 
-function updateProgressBar() {
+async function updateProgressBar() {
 
   const bar = document.getElementById("progressBar");
   const miniBar = document.getElementById("miniProgressBar");
@@ -375,7 +370,7 @@ const miniProgressBar =
 
 let isScrubbing = false;
 
-function handleScrub(value) {
+async function handleScrub(value) {
   if (!audio.duration) return;
 
   const newTime =
@@ -440,7 +435,7 @@ progressBar?.addEventListener("mouseleave", () => {
   }
 });
 
-function parseLRC(lyrics) {
+async function parseLRC(lyrics) {
   if (!lyrics) return [];
 
   return lyrics
@@ -462,7 +457,7 @@ function parseLRC(lyrics) {
     .filter(item => item && item.text);
 }
 
-function loadSyncedLyrics(lyrics) {
+async function loadSyncedLyrics(lyrics) {
   const lyricsText = document.getElementById("lyricsText");
 
   if (!lyricsText) return;
@@ -486,7 +481,7 @@ function loadSyncedLyrics(lyrics) {
   )
   .join("");
 }
-function updateSyncedLyrics() {
+async function updateSyncedLyrics() {
   if (!syncedLyrics.length) return;
 
   const currentTime = audio.currentTime;
@@ -523,7 +518,7 @@ function updateSyncedLyrics() {
    HELPERS
 ========================= */
 
-function formatTime(seconds) {
+async function formatTime(seconds) {
 
   if (isNaN(seconds)) {
     return "0:00";
