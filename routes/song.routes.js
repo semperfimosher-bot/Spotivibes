@@ -40,11 +40,21 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
-      "audio/mpeg",
-      "audio/mp4",
-      "audio/mp3",
-      "audio/wav",
-    ];
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/mp4",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/wave",
+  "audio/vnd.wave",
+  "audio/aac",
+  "audio/flac",
+  "audio/x-flac",
+  "audio/ogg",
+  "audio/webm",
+  "audio/x-m4a",
+  "application/octet-stream"
+];
 
     if (!allowedTypes.includes(file.mimetype)) {
       return cb(new Error("Invalid file type"));
@@ -225,18 +235,7 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
       const year =
         metadata.common?.year?.toString() || null;
 
-      try {
-        lyrics = await fetchLyrics({
-          title,
-          artist,
-          album,
-          genre,
-          duration,
-          year
-        });
-      } catch (err) {
-        console.warn("Lyrics fetch failed:", err.message);
-      }
+      lyrics = null;
 
       const picture = metadata.common?.picture?.[0];
 
@@ -265,24 +264,51 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
         })
       );
 
-      await pool.query(
-        `
-        INSERT INTO songs 
-        (title, artist, audio_url, genre, album, duration, cover_url, lyrics, year)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `,
-        [
-          title,
-          artist,
-          fileKey,
-          genre,
-          album,
-          duration,
-          coverKey,
-          lyrics,
-          year
-        ]
-      );
+      const inserted = await pool.query(
+  `
+  INSERT INTO songs 
+  (title, artist, audio_url, genre, album, duration, cover_url, lyrics, year)
+  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+  RETURNING id
+  `,
+  [
+    title,
+    artist,
+    fileKey,
+    genre,
+    album,
+    duration,
+    coverKey,
+    lyrics,
+    year
+  ]
+);
+
+const songId = inserted.rows[0].id;
+
+fetchLyrics({
+  title,
+  artist,
+  album,
+  genre,
+  duration,
+  year
+})
+
+  .then(async (foundLyrics) => {
+    if (!foundLyrics) return;
+
+    await pool.query(
+      "UPDATE songs SET lyrics = $1 WHERE id = $2",
+      [foundLyrics, songId]
+    );
+  })
+  .catch(err =>
+    console.warn(
+      "Lyrics background fetch failed:",
+      err.message
+    )
+  );
 
       await addNotification(
         "SONG_UPLOADED",
@@ -348,6 +374,21 @@ router.delete("/songs/:id", requireAdmin, async (req, res) => {
       "DELETE FROM playlist_songs WHERE song_id = $1",
       [req.params.id]
     );
+
+    await pool.query(
+  "DELETE FROM playlist_songs WHERE song_id = $1",
+  [req.params.id]
+);
+
+await pool.query(
+  "DELETE FROM user_library WHERE song_id = $1",
+  [req.params.id]
+);
+
+await pool.query(
+  "DELETE FROM listening_history WHERE song_id = $1",
+  [req.params.id]
+);
 
     await pool.query(
       "DELETE FROM songs WHERE id = $1",

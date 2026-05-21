@@ -5,7 +5,7 @@ let shuffleMode = false;
 
 const LAST_PLAYBACK_KEY = "spotivibes_last_playback";
 
-const audioUrlCache = new Map();
+const playerAudioUrlCache = new Map();
 
 let preloadAudio1 = new Audio();
 let preloadAudio2 = new Audio();
@@ -14,14 +14,15 @@ preloadAudio1.preload = "auto";
 preloadAudio2.preload = "auto";
 
 async function getCachedAudioUrl(songId) {
-  if (audioUrlCache.has(songId)) {
-    return audioUrlCache.get(songId);
-  }
+  
+  if (playerAudioUrlCache.has(songId)) {
+  return playerAudioUrlCache.get(songId);
+}
 
   const url = await getAudioUrl(songId);
 
   if (url) {
-    audioUrlCache.set(songId, url);
+    playerAudioUrlCache.set(songId, url);
   }
 
   return url;
@@ -82,10 +83,6 @@ async function playSong(id) {
 
   trackListeningStats(song).catch(console.warn);
 
-  const saved = JSON.parse(
-    localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
-  );
-
   const audioUrl = await getCachedAudioUrl(song.id);
 
   if (!audioUrl) {
@@ -97,12 +94,18 @@ async function playSong(id) {
   audio.load();
 
   audio.onloadedmetadata = () => {
-    if (String(saved.id) === String(song.id) && saved.time) {
-      audio.currentTime = saved.time;
-    }
-
     audio.play().catch(console.warn);
   };
+
+  const nowPlayingText = document.getElementById("nowPlayingText");
+  if (nowPlayingText) {
+    nowPlayingText.innerText = `${song.title} - ${song.artist}`;
+  }
+
+  const miniInfo = document.getElementById("miniInfo");
+  if (miniInfo) {
+    miniInfo.innerText = `${song.title} - ${song.artist}`;
+  }
 
   const albumArt = document.getElementById("albumArt");
   if (albumArt) {
@@ -118,23 +121,7 @@ async function playSong(id) {
       : "";
   }
 
-  const nowPlayingText = document.getElementById("nowPlayingText");
-  if (nowPlayingText) {
-    nowPlayingText.innerText = `${song.title} - ${song.artist}`;
-  }
-
   loadSyncedLyrics(song.lyrics);
-
-  const miniInfo = document.getElementById("miniInfo");
-  if (miniInfo) {
-    miniInfo.innerText = `${song.title} - ${song.artist}`;
-  }
-
-  document.documentElement.style.setProperty("--progress", "0%");
-
-  document.getElementById("nowPlayingCard")
-    ?.classList.add("playing");
-
   updatePlayButton();
   highlightCurrentSong?.();
   preloadNextTwoSongs();

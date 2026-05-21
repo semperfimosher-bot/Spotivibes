@@ -638,7 +638,7 @@ function createSongCard(song) {
     </div>
   `;
 
-   card.addEventListener("click", () => playSong(song.id));
+   card.addEventListener("click", () => window.playSong(song.id));
 
   const moreBtn = card.querySelector(".song-more-btn");
 
@@ -787,7 +787,7 @@ function createCompactSongRow(song) {
     </div>
   `;
 
-  row.addEventListener("click", () => playSong(song.id));
+  row.addEventListener("click", () => window.playSong(song.id));
 
   return row;
 }

@@ -74,9 +74,22 @@ async function loadMoreSongs() {
   await loadSongs(false);
 }
 
+const audioUrlCache = new Map();
+
 async function getAudioUrl(songId) {
+  if (audioUrlCache.has(songId)) {
+    return audioUrlCache.get(songId);
+  }
+
   const data = await apiFetch(`/api/songs/${songId}/audio-url`);
-  return data?.audioUrl || null;
+
+  const url = data?.audioUrl || null;
+
+  if (url) {
+    audioUrlCache.set(songId, url);
+  }
+
+  return url;
 }
 
 // =========================

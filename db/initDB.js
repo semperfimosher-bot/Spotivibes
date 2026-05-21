@@ -126,6 +126,26 @@ await pool.query(`
   CREATE INDEX IF NOT EXISTS idx_playlists_user_id
   ON playlists (user_id)
 `);
+
+await pool.query(`
+  CREATE EXTENSION IF NOT EXISTS pg_trgm
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_title_trgm
+  ON songs USING gin (title gin_trgm_ops)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_artist_trgm
+  ON songs USING gin (artist gin_trgm_ops)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_album_trgm
+  ON songs USING gin (album gin_trgm_ops)
+`);
+
 }
 
 module.exports = initDB;

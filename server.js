@@ -17,6 +17,13 @@ const playlistRoutes = require("./routes/playlist.routes");
 const usersRoutes = require("./routes/users.routes");
 const statsRoutes = require("./routes/stats.routes");
 const helmet = require("helmet");
+const Sentry = require("@sentry/node");
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN
+  });
+}
 
 const app = express();
 app.use(
@@ -37,7 +44,11 @@ app.use(
 app.set("trust proxy", 1);
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: [
+  process.env.FRONTEND_URL,
+  "https://spotivibes.com",
+  "https://www.spotivibes.com"
+].filter(Boolean),
   credentials: true
 }));
 
@@ -92,6 +103,10 @@ app.get("/ping", (req, res) => {
   res.status(200).send("OK");
 });
 
+app.get("/health", (req, res) => {
+  res.json({ ok: true });
+});
+
 app.use((err, req, res, next) => {
   console.error({
     message: err.message,
@@ -99,6 +114,10 @@ app.use((err, req, res, next) => {
     path: req.path,
     method: req.method
   });
+
+  if (process.env.SENTRY_DSN) {
+  Sentry.captureException(err);
+}
 
   res.status(err.status || 500).json({
     error: process.env.NODE_ENV === "production"
@@ -109,8 +128,10 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-initDB().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Spotivibes server running on port ${PORT}`);
+  if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
   });
-});
+}
+
+module.exports = app;
