@@ -107,6 +107,10 @@ app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/test-error", (req, res, next) => {
+  next(new Error("Sentry working test"));
+});
+
 app.use((err, req, res, next) => {
   console.error({
     message: err.message,
