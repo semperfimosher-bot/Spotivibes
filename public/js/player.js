@@ -7,6 +7,12 @@ const LAST_PLAYBACK_KEY = "spotivibes_last_playback";
 
 const audioUrlCache = new Map();
 
+let preloadAudio1 = new Audio();
+let preloadAudio2 = new Audio();
+
+preloadAudio1.preload = "auto";
+preloadAudio2.preload = "auto";
+
 async function getCachedAudioUrl(songId) {
   if (audioUrlCache.has(songId)) {
     return audioUrlCache.get(songId);
@@ -20,15 +26,6 @@ async function getCachedAudioUrl(songId) {
 
   return url;
 }
-
-  const url = await getAudioUrl(songId);
-
-  if (url) {
-    audioUrlCache.set(songId, url);
-  }
-
-  return url;
-
 async function preloadNextTwoSongs() {
   const i = state.songs.findIndex(
     s => String(s.id) === String(state.currentId)
@@ -56,7 +53,7 @@ async function preloadNextTwoSongs() {
   }
 }
 
-async function getSong(id) {
+function getSong(id) {
   return state.songs.find(s => String(s.id) === String(id));
 }
 
@@ -66,7 +63,7 @@ async function playSong(id) {
 
   state.currentId = id;
 
-  trackListeningStats(song);
+trackListeningStats(song).catch(console.warn);
 
  const saved = JSON.parse(
   localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
@@ -78,15 +75,13 @@ if (!audioUrl) return;
 audio.src = audioUrl;
 audio.load();
 
-audio.addEventListener("loadedmetadata", function restoreTime() {
-  audio.removeEventListener("loadedmetadata", restoreTime);
-
+audio.onloadedmetadata = () => {
   if (String(saved.id) === String(song.id) && saved.time) {
     audio.currentTime = saved.time;
   }
 
-  audio.play();
-});
+  audio.play().catch(console.warn);
+};
 
   state.isPlaying = true;
   const albumArt = document.getElementById("albumArt");
@@ -122,9 +117,8 @@ if (miniAlbumArt) {
 
   updatePlayButton();
   highlightCurrentSong?.();
+  preloadNextTwoSongs();
 }
-
-preloadNextTwoSongs();
 
 async function togglePlay() {
   if (!audio.src) {
@@ -143,7 +137,7 @@ async function togglePlay() {
   updatePlayButton();
 }
 
-async function updatePlayButton() {
+function updatePlayButton() {
   const btn = document.getElementById("playBtn");
   if (btn) {
     btn.innerText = audio.paused ? "▶" : "⏸";
@@ -263,7 +257,7 @@ document.getElementById("mobileRepeatBtn")
 
 let progressRAF = null;
 
-async function updateProgressBar() {
+function updateProgressBar() {
 
   const bar = document.getElementById("progressBar");
   const miniBar = document.getElementById("miniProgressBar");
@@ -370,7 +364,7 @@ const miniProgressBar =
 
 let isScrubbing = false;
 
-async function handleScrub(value) {
+function handleScrub(value) {
   if (!audio.duration) return;
 
   const newTime =
@@ -435,7 +429,7 @@ progressBar?.addEventListener("mouseleave", () => {
   }
 });
 
-async function parseLRC(lyrics) {
+function parseLRC(lyrics) {
   if (!lyrics) return [];
 
   return lyrics
@@ -457,7 +451,7 @@ async function parseLRC(lyrics) {
     .filter(item => item && item.text);
 }
 
-async function loadSyncedLyrics(lyrics) {
+function loadSyncedLyrics(lyrics) {
   const lyricsText = document.getElementById("lyricsText");
 
   if (!lyricsText) return;
@@ -481,7 +475,7 @@ async function loadSyncedLyrics(lyrics) {
   )
   .join("");
 }
-async function updateSyncedLyrics() {
+function updateSyncedLyrics() {
   if (!syncedLyrics.length) return;
 
   const currentTime = audio.currentTime;
@@ -518,7 +512,7 @@ async function updateSyncedLyrics() {
    HELPERS
 ========================= */
 
-async function formatTime(seconds) {
+function formatTime(seconds) {
 
   if (isNaN(seconds)) {
     return "0:00";
@@ -595,6 +589,7 @@ async function trackListeningStats(song) {
     body: JSON.stringify({ songId: song.id })
   });
 }
+
 window.playSong = playSong;
 window.nextSong = nextSong;
 window.prevSong = prevSong;

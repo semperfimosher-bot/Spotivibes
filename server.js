@@ -27,7 +27,7 @@ app.use(
         imgSrc: ["'self'", "data:", "blob:", "https:"],
         mediaSrc: ["'self'", "https:"],
         connectSrc: ["'self'", process.env.FRONTEND_URL || "'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
       },
     },

@@ -35,8 +35,8 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 250 * 1024 * 1024,
-    files: 200
+    fileSize: 50 * 1024 * 1024,
+    files: 50
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -66,7 +66,7 @@ router.get("/songs", requireLogin, async (req, res) => {
     const result = await pool.query(
       `
       SELECT 
-        id, title, artist, genre, album, mood, year, duration, cover_url
+  id, title, artist, genre, album, mood, year, duration, cover_url, lyrics
       FROM songs
       ORDER BY id DESC
       LIMIT $1 OFFSET $2
@@ -84,6 +84,7 @@ router.get("/songs", requireLogin, async (req, res) => {
         mood: s.mood,
         year: s.year,
         duration: s.duration,
+        lyrics: s.lyrics,
         coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null
       }))
     );

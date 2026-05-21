@@ -18,36 +18,16 @@ async function fetchLyricsFromLRCLIB({ title, artist, album, duration }) {
     );
 
     if (!res.ok) {
-      console.warn("LRCLIB lyrics not found:", title, artist);
       return null;
     }
 
     const data = await res.json();
 
     return data.syncedLyrics || data.plainLyrics || null;
-  } catch (err) {
-    console.warn("LRCLIB fetch failed:", err.message);
+  } catch {
     return null;
   }
 }
-
-async function fetchLyrics({ title, artist, album, duration }) {
-  const lrclibLyrics = await fetchLyricsFromLRCLIB({
-    title,
-    artist,
-    album,
-    duration
-  });
-
-  if (lrclibLyrics) return lrclibLyrics;
-
-  return null;
-}
-
-module.exports = {
-  fetchLyricsFromLRCLIB,
-  fetchLyrics
-};
 
 async function fetchLyricsFromLyricsOvh({ artist, title }) {
   try {
@@ -55,7 +35,9 @@ async function fetchLyricsFromLyricsOvh({ artist, title }) {
       `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`
     );
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return null;
+    }
 
     const data = await res.json();
 
@@ -68,11 +50,19 @@ async function fetchLyricsFromLyricsOvh({ artist, title }) {
 async function fetchLyrics(params) {
   const lrclib = await fetchLyricsFromLRCLIB(params);
 
-  if (lrclib) return lrclib;
+  if (lrclib) {
+    return lrclib;
+  }
 
   const ovh = await fetchLyricsFromLyricsOvh(params);
 
-  if (ovh) return ovh;
+  if (ovh) {
+    return ovh;
+  }
 
   return null;
 }
+
+module.exports = {
+  fetchLyrics
+};
