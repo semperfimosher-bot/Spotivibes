@@ -74,10 +74,10 @@
 
   <div class="sidebar">
     <h2>Admin</h2>
-    <p onclick="show('library')"> Library</p>
-    <p onclick="show('upload')"> Upload</p>
-    <p onclick="show('settings')"> Settings</p>
-    <p onclick="show('notifications')"> Notifications</p>
+    <p data-page="library"> Library</p>
+    <p data-page="upload"> Upload</p>
+    <p data-page="settings"> Settings</p>
+    <p data-page="notifications"> Notifications</p>
   </div>
 
   <div class="main">
@@ -92,7 +92,7 @@
 
       <input type="file" id="fileInput" multiple />
       <br><br>
-      <button onclick="uploadFiles()">Upload</button>
+      <button id="uploadSongsBtn">Upload</button>
 
       <p id="status"></p>
     </div>
@@ -102,7 +102,7 @@
 
       <input type="file" id="bgFile" />
       <br><br>
-      <button onclick="uploadBackground()">Upload Background</button>
+      <button id="uploadBackgroundBtn">Upload Background</button>
       <button id="deleteAllContentBtn">
         Delete All Content
       </button>
@@ -126,6 +126,7 @@
 </div>
 
 <script src="/js/config.js"></script>
+<script src="/js/constants.js"></script>
 <script src="/js/api.js"></script>
 
 <script>
@@ -137,7 +138,26 @@ function show(page) {
   if (page === "notifications") loadNotifications();
 }
 
-/* LOAD SONGS */
+document.querySelectorAll("[data-page]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    show(btn.dataset.page);
+  });
+});
+
+document.getElementById("uploadSongsBtn")
+  ?.addEventListener("click", uploadFiles);
+
+document.getElementById("uploadBackgroundBtn")
+  ?.addEventListener("click", uploadBackground);
+
+document.getElementById("songList")
+  ?.addEventListener("click", (e) => {
+    const deleteBtn = e.target.closest("[data-song-id]");
+    if (!deleteBtn) return;
+
+    deleteSong(deleteBtn.dataset.songId);
+  });
+  
 async function loadSongs() {
   await loadConfig();
 
@@ -156,7 +176,7 @@ async function loadSongs() {
     sorted.map(s => `
       <div class="row">
         <div>${s.title} - ${s.artist}</div>
-        <div class="deleteBtn" onclick="deleteSong(${s.id})">−</div>
+        <div class="deleteBtn" data-song-id="${s.id}">−</div>
       </div>
     `).join("");
 }

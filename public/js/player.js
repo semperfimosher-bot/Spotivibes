@@ -54,64 +54,84 @@ async function preloadNextTwoSongs() {
 }
 
 function getSong(id) {
-  return state.songs.find(s => String(s.id) === String(id));
+  const songId = String(id);
+
+  return (
+    state.songs?.find(s => String(s.id) === songId) ||
+    state.library?.find(s => String(s.id) === songId) ||
+    state.libraryPlaylists
+      ?.flatMap(p => p.songs || [])
+      .find(s => String(s.id) === songId) ||
+    state.customPlaylists
+      ?.flatMap(p => p.songs || [])
+      .find(s => String(s.id) === songId) ||
+    null
+  );
 }
 
 async function playSong(id) {
   const song = getSong(id);
-  if (!song) return;
 
-  state.currentId = id;
-
-trackListeningStats(song).catch(console.warn);
-
- const saved = JSON.parse(
-  localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
-);
-
-const audioUrl = await getCachedAudioUrl(song.id);
-if (!audioUrl) return;
-
-audio.src = audioUrl;
-audio.load();
-
-audio.onloadedmetadata = () => {
-  if (String(saved.id) === String(song.id) && saved.time) {
-    audio.currentTime = saved.time;
+  if (!song) {
+    console.error("Song not found in player:", id);
+    return;
   }
 
-  audio.play().catch(console.warn);
-};
-
+  state.currentId = song.id;
   state.isPlaying = true;
+
+  trackListeningStats(song).catch(console.warn);
+
+  const saved = JSON.parse(
+    localStorage.getItem(LAST_PLAYBACK_KEY) || "{}"
+  );
+
+  const audioUrl = await getCachedAudioUrl(song.id);
+
+  if (!audioUrl) {
+    console.error("No audio URL found for song:", song);
+    return;
+  }
+
+  audio.src = audioUrl;
+  audio.load();
+
+  audio.onloadedmetadata = () => {
+    if (String(saved.id) === String(song.id) && saved.time) {
+      audio.currentTime = saved.time;
+    }
+
+    audio.play().catch(console.warn);
+  };
+
   const albumArt = document.getElementById("albumArt");
-if (albumArt) {
-  albumArt.style.backgroundImage = song.coverUrl
-    ? `url('${song.coverUrl}')`
-    : "";
-}
+  if (albumArt) {
+    albumArt.style.backgroundImage = song.coverUrl
+      ? `url('${song.coverUrl}')`
+      : "";
+  }
 
-const miniAlbumArt = document.getElementById("miniAlbumArt");
-if (miniAlbumArt) {
-  miniAlbumArt.style.backgroundImage = song.coverUrl
-    ? `url('${song.coverUrl}')`
-    : "";
-}
+  const miniAlbumArt = document.getElementById("miniAlbumArt");
+  if (miniAlbumArt) {
+    miniAlbumArt.style.backgroundImage = song.coverUrl
+      ? `url('${song.coverUrl}')`
+      : "";
+  }
 
-  document.getElementById("nowPlayingText").innerText =
-    `${song.title} - ${song.artist}`;
+  const nowPlayingText = document.getElementById("nowPlayingText");
+  if (nowPlayingText) {
+    nowPlayingText.innerText = `${song.title} - ${song.artist}`;
+  }
 
-    loadSyncedLyrics(song.lyrics);
+  loadSyncedLyrics(song.lyrics);
 
   const miniInfo = document.getElementById("miniInfo");
   if (miniInfo) {
     miniInfo.innerText = `${song.title} - ${song.artist}`;
   }
 
-  // reset progress visual
   document.documentElement.style.setProperty("--progress", "0%");
 
-  // glow effect
   document.getElementById("nowPlayingCard")
     ?.classList.add("playing");
 
