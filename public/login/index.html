@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spotivibes Login</title>
 
   <style>
@@ -124,15 +125,29 @@
     }
 
     @media (max-width: 480px) {
-      .box {
-        width: calc(100% - 28px);
-        padding: 22px;
-      }
+  body {
+    padding: 16px;
+    overflow-y: auto;
+  }
 
-      .actions {
-        flex-direction: column;
-      }
-    }
+  .box {
+    width: 100%;
+    max-width: 380px;
+    padding: 22px;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  button {
+    width: 100%;
+  }
+}
   </style>
 </head>
 
