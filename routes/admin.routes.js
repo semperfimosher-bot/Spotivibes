@@ -10,7 +10,8 @@ const {
 
 const {
   b2,
-  getFileUrl,
+  getPublicCoverUrl,
+  B2_COVER_BUCKET_NAME,
   PutObjectCommand
 } = require("../services/storage.service");
 
@@ -91,7 +92,7 @@ router.post("/upload-bg", requireAdmin, upload.single("file"), async (req, res) 
 
     await b2.send(
       new PutObjectCommand({
-        Bucket: process.env.B2_BUCKET_NAME,
+        Bucket: B2_COVER_BUCKET_NAME,
         Key: fileKey,
         Body: req.file.buffer,
         ContentType: req.file.mimetype,
@@ -139,7 +140,7 @@ router.get("/background", requireLogin, async (req, res) => {
       return res.json({ url: null });
     }
 
-    const url = await getFileUrl(fileKey);
+    const url = getPublicCoverUrl(fileKey);
 
     res.json({ url });
 

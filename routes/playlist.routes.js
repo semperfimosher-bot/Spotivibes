@@ -7,7 +7,8 @@ const {
 } = require("../middleware/auth.middleware");
 
 const {
-  getFileUrl
+  getFileUrl,
+  getPublicCoverUrl
 } = require("../services/storage.service");
 
 const router = express.Router();
@@ -314,9 +315,7 @@ router.get("/:id", requireLogin, async (req, res) => {
         year: song.year,
         lyrics: song.lyrics,
         audioUrl: await getFileUrl(song.audio_url),
-        coverUrl: song.cover_url
-          ? await getFileUrl(song.cover_url)
-          : null
+        coverUrl: getPublicCoverUrl(song.cover_url)
       }))
     );
 

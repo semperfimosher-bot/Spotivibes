@@ -34,17 +34,21 @@ app.use(helmet({
         "'self'",
         "https://s3.us-east-005.backblazeb2.com"
       ],
+
       imgSrc: [
-        "'self'",
-        "data:",
-        "blob:",
-        "https://s3.us-east-005.backblazeb2.com"
-      ],
+  "'self'",
+  "data:",
+  "blob:",
+  "https://f005.backblazeb2.com",
+  "https://*.backblazeb2.com"
+],
+     
       mediaSrc: [
-        "'self'",
-        "blob:",
-        "https://s3.us-east-005.backblazeb2.com"
-      ]
+  "'self'",
+  "blob:",
+  "https://f005.backblazeb2.com",
+  "https://*.backblazeb2.com"
+],
     }
   }
 }));

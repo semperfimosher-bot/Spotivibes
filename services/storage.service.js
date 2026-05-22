@@ -37,11 +37,11 @@ const b2 = new S3Client({
   },
 });
 
-async function getFileUrl(fileKey) {
+async function getFileUrl(fileKey, bucketName = B2_AUDIO_BUCKET_NAME) {
   if (!fileKey) return null;
 
   const command = new GetObjectCommand({
-    Bucket: B2_BUCKET_NAME,
+    Bucket: bucketName,
     Key: fileKey,
   });
 

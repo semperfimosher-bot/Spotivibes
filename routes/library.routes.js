@@ -1,7 +1,9 @@
 const express = require("express");
 const pool = require("../database");
 const { requireLogin } = require("../middleware/auth.middleware");
-const { getFileUrl } = require("../services/storage.service");
+const {
+  getPublicCoverUrl
+} = require("../services/storage.service");
 
 const router = express.Router();
 

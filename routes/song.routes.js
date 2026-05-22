@@ -249,18 +249,19 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
         coverKey = `covers/${Date.now()}-${file.originalname}.${imageExt}`;
 
         await b2.send(
-          new PutObjectCommand({
-            Bucket: process.env.B2_BUCKET_NAME,
-            Key: coverKey,
-            Body: picture.data,
-            ContentType: picture.format,
-          })
-        );
+  new PutObjectCommand({
+    Bucket: B2_COVER_BUCKET_NAME,
+    Key: coverKey,
+    Body: picture.data,
+    ContentType: picture.format,
+    CacheControl: "public, max-age=31536000, immutable"
+  })
+);
       }
 
       await b2.send(
         new PutObjectCommand({
-          Bucket: process.env.B2_BUCKET_NAME,
+          Bucket: B2_AUDIO_BUCKET_NAME,
           Key: fileKey,
           Body: file.buffer,
           ContentType: file.mimetype,
@@ -484,8 +485,6 @@ const result = await pool.query(
         lyrics: s.lyrics,
         year: s.year,
         coverUrl: getPublicCoverUrl(s.cover_url)
-          ? await getFileUrl(s.cover_url)
-          : null
       };
     }
 
