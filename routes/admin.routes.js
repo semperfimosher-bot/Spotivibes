@@ -16,9 +16,111 @@ const {
   PutObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
-  ListObjectsV2Command
+  ListObjectsV2Command,
+  ListObjectVersionsCommand
 } = require("../services/storage.service");
 
+async function permanentlyDeleteB2Prefix(bucketName, prefix) {
+  let KeyMarker;
+  let VersionIdMarker;
+
+  do {
+    const listed = await b2.send(
+      new ListObjectVersionsCommand({
+        Bucket: bucketName,
+        Prefix: prefix,
+        KeyMarker,
+        VersionIdMarker
+      })
+    );
+
+    const versions = listed.Versions || [];
+    const deleteMarkers = listed.DeleteMarkers || [];
+
+    const objectsToDelete = [
+      ...versions.map(v => ({
+        Key: v.Key,
+        VersionId: v.VersionId
+      })),
+      ...deleteMarkers.map(m => ({
+        Key: m.Key,
+        VersionId: m.VersionId
+      }))
+    ];
+
+    for (let i = 0; i < objectsToDelete.length; i += 1000) {
+      const chunk = objectsToDelete.slice(i, i + 1000);
+
+      if (chunk.length) {
+        await b2.send(
+          new DeleteObjectsCommand({
+            Bucket: bucketName,
+            Delete: {
+              Objects: chunk,
+              Quiet: true
+            }
+          })
+        );
+      }
+    }
+
+    KeyMarker = listed.NextKeyMarker;
+    VersionIdMarker = listed.NextVersionIdMarker;
+
+  } while (KeyMarker);
+}
+
+async function permanentlyDeleteB2Keys(bucketName, keys = []) {
+  const uniqueKeys = [...new Set(keys.filter(Boolean))];
+
+  for (const key of uniqueKeys) {
+    let KeyMarker;
+    let VersionIdMarker;
+
+    do {
+      const listed = await b2.send(
+        new ListObjectVersionsCommand({
+          Bucket: bucketName,
+          Prefix: key,
+          KeyMarker,
+          VersionIdMarker
+        })
+      );
+
+      const objectsToDelete = [
+        ...(listed.Versions || [])
+          .filter(v => v.Key === key)
+          .map(v => ({
+            Key: v.Key,
+            VersionId: v.VersionId
+          })),
+
+        ...(listed.DeleteMarkers || [])
+          .filter(m => m.Key === key)
+          .map(m => ({
+            Key: m.Key,
+            VersionId: m.VersionId
+          }))
+      ];
+
+      if (objectsToDelete.length) {
+        await b2.send(
+          new DeleteObjectsCommand({
+            Bucket: bucketName,
+            Delete: {
+              Objects: objectsToDelete,
+              Quiet: true
+            }
+          })
+        );
+      }
+
+      KeyMarker = listed.NextKeyMarker;
+      VersionIdMarker = listed.NextVersionIdMarker;
+
+    } while (KeyMarker);
+  }
+}
 async function deleteB2Prefix(bucketName, prefix) {
   let ContinuationToken;
 
@@ -147,10 +249,36 @@ router.post("/admin/delete-all-content", requireAdmin, async (req, res) => {
       }
     }
 
-await deleteB2Prefix(B2_AUDIO_BUCKET_NAME, "songs/");
-await deleteB2Prefix(B2_COVER_BUCKET_NAME, "covers/");
-await deleteB2Prefix(B2_COVER_BUCKET_NAME, "backgrounds/");
-await deleteB2Prefix(B2_COVER_BUCKET_NAME, "avatars/");
+const dbFilesResult = await pool.query(`
+  SELECT audio_url, cover_url
+  FROM songs
+`);
+
+const backgroundsResult = await pool.query(`
+  SELECT value
+  FROM settings
+  WHERE key = 'background'
+`);
+
+const profilesResult = await pool.query(`
+  SELECT profile_pic_url
+  FROM users
+  WHERE profile_pic_url IS NOT NULL
+`);
+
+await permanentlyDeleteB2Keys(
+  B2_AUDIO_BUCKET_NAME,
+  dbFilesResult.rows.map(s => s.audio_url)
+);
+
+await permanentlyDeleteB2Keys(
+  B2_COVER_BUCKET_NAME,
+  [
+    ...dbFilesResult.rows.map(s => s.cover_url),
+    ...backgroundsResult.rows.map(r => r.value),
+    ...profilesResult.rows.map(u => u.profile_pic_url)
+  ]
+);
 
 await pool.query("BEGIN");
 
