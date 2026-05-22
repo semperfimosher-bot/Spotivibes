@@ -383,12 +383,20 @@ async function handleSearch(e) {
 
   saveRecentSearch(query);
 
- try {
-  const res = await apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`);
-  renderSmartSearchResults(res);
-} catch (err) {
-  console.warn("Search failed:", err.message);
-}
+ const localSongs = rankSongs(query, state.songs || [])
+  .filter(s => s.score > 0)
+  .slice(0, 25);
+
+renderSmartSearchResults({
+  playlists: [],
+  songs: localSongs
+});
+
+apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`)
+  .then(renderSmartSearchResults)
+  .catch(err => {
+    console.warn("Search failed:", err.message);
+  });
 }
 
 // ==========================
@@ -473,10 +481,24 @@ function createGeneratedPlaylistCard(playlist) {
 
   const addBtn = row.querySelector(".playlist-add-btn");
 
-  addBtn?.addEventListener("click", async (e) => {
+addBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
 
-  const res = await apiFetch("/api/playlists/save", {
+  const tempPlaylist = {
+    id: `temp-${Date.now()}`,
+    name: playlist.name,
+    type: playlist.type || "generated",
+    songs: playlist.songs || []
+  };
+
+  const previousPlaylists = [...state.libraryPlaylists];
+
+  state.libraryPlaylists = [tempPlaylist, ...state.libraryPlaylists];
+  renderLibrary();
+
+  addBtn.innerText = "Added";
+
+  apiFetch("/api/playlists/save", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -486,13 +508,17 @@ function createGeneratedPlaylistCard(playlist) {
       query: playlist.name,
       songs: playlist.songs
     })
-  });
-
-  if (res?.success) {
-    await loadSavedPlaylists();
-    renderLibrary();
-    addBtn.innerText = "Added";
-  }
+  })
+    .then(async () => {
+      await loadSavedPlaylists();
+    })
+    .catch(err => {
+      console.warn("Save playlist failed:", err.message);
+      state.libraryPlaylists = previousPlaylists;
+      renderLibrary();
+      addBtn.innerText = "Add";
+      alert("Could not save playlist.");
+    });
 });
 
   return row;
@@ -615,6 +641,24 @@ row.querySelector(".remove-playlist-btn")
 function getSongCover(song) {
   return song.coverUrl || song.cover_url || song.image || song.artwork || "";
 }
+
+function sameId(a, b) {
+  return String(a) === String(b);
+}
+
+function hasSong(list, songId) {
+  return list.some(s => sameId(s.id, songId));
+}
+
+function upsertSong(list, song) {
+  if (hasSong(list, song.id)) return list;
+  return [song, ...list];
+}
+
+function removeSongById(list, songId) {
+  return list.filter(s => !sameId(s.id, songId));
+}
+
 function createSongCard(song) {
   const card = document.createElement("div");
   card.className = "card";
@@ -1141,13 +1185,27 @@ function openSongMenu(song, button) {
         s => String(s.id) === String(song.id)
       );
 
-      await apiFetch("/api/playlists/add-song", {
+     const previousSongs = [...playlist.songs];
+
+if (!playlist.songs.some(s => String(s.id) === String(song.id))) {
+  playlist.songs.unshift(song);
+}
+
+renderLibrary();
+closeSongMenu();
+
+apiFetch("/api/playlists/add-song", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     playlistName: playlist.name,
     songId: song.id
   })
+}).catch(err => {
+  console.warn("Add to playlist failed:", err.message);
+  playlist.songs = previousSongs;
+  renderLibrary();
+  alert("Could not add song to playlist.");
 });
 
 await loadSavedPlaylists();
@@ -1199,35 +1257,39 @@ function showQueueToast(song) {
 }
 
 async function addSongToLibrary(song) {
-  await apiFetch("/api/library/add", {
+  const previousLibrary = [...state.library];
+
+  state.library = upsertSong(state.library, song);
+  renderLibrary();
+
+  apiFetch("/api/library/add", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ songId: song.id })
+  }).catch(err => {
+    console.warn("Add to library failed:", err.message);
+    state.library = previousLibrary;
+    renderLibrary();
+    alert("Could not add song to library.");
   });
-
-  await loadLibrary();
 }
 
 async function removeSongFromLibrary(song) {
-  const res = await apiFetch("/api/library/remove", {
+  const previousLibrary = [...state.library];
+
+  state.library = removeSongById(state.library, song.id);
+  renderLibrary();
+
+  apiFetch("/api/library/remove", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ songId: song.id })
+  }).catch(err => {
+    console.warn("Remove from library failed:", err.message);
+    state.library = previousLibrary;
+    renderLibrary();
+    alert("Could not remove song from library.");
   });
-
-  if (!res?.success) {
-    alert("Failed to remove song from database");
-    return;
-  }
-
-  await loadLibrary();
-
-  if (
-    document.getElementById("homeView") &&
-    !document.getElementById("homeView").classList.contains("hidden")
-  ) {
-    renderHome();
-  }
 }
 
 function addToQueue(song) {
