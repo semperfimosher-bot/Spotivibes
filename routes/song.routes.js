@@ -203,7 +203,10 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
       let metadata = {};
 
       try {
-        metadata = await mm.parseBuffer(file.buffer, file.mimetype);
+        metadata = await mm.parseBuffer(file.buffer, {
+  mimeType: file.mimetype,
+  path: file.originalname
+});
       } catch (err) {
         console.warn("Could not read metadata:", file.originalname);
       }
@@ -240,24 +243,33 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
 
       lyrics = null;
 
-      const picture = metadata.common?.picture?.[0];
+      const picture =
+  metadata.common?.picture?.find(p => p?.data?.length) ||
+  metadata.common?.picture?.[0];
 
-      if (picture) {
-        const imageExt =
-          picture.format === "image/png" ? "png" : "jpg";
+if (picture?.data?.length) {
+  const imageExt =
+    picture.format === "image/png" ? "png" : "jpg";
 
-        coverKey = `covers/${Date.now()}-${file.originalname}.${imageExt}`;
+  const safeName = file.originalname
+    .replace(/\.[^/.]+$/, "")
+    .replace(/[^a-zA-Z0-9-_]/g, "_")
+    .slice(0, 80);
 
-        await b2.send(
-  new PutObjectCommand({
-    Bucket: B2_COVER_BUCKET_NAME,
-    Key: coverKey,
-    Body: picture.data,
-    ContentType: picture.format,
-    CacheControl: "public, max-age=31536000, immutable"
-  })
-);
-      }
+  coverKey = `covers/${Date.now()}-${safeName}.${imageExt}`;
+
+  await b2.send(
+    new PutObjectCommand({
+      Bucket: B2_COVER_BUCKET_NAME,
+      Key: coverKey,
+      Body: Buffer.from(picture.data),
+      ContentType: picture.format || "image/jpeg",
+      CacheControl: "public, max-age=31536000, immutable"
+    })
+  );
+} else {
+  console.warn("NO ALBUM ART FOUND:", file.originalname);
+}
 
       await b2.send(
         new PutObjectCommand({
