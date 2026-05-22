@@ -71,7 +71,7 @@ async function uploadFiles() {
     return;
   }
 
-  const batchSize = 5;
+  const batchSize = 20;
   let uploaded = 0;
 
   bar.style.width = "0%";

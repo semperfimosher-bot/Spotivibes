@@ -18,6 +18,13 @@ const B2_ENDPOINT = cleanEnv(process.env.B2_ENDPOINT);
 const B2_KEY_ID = cleanEnv(process.env.B2_KEY_ID);
 const B2_APP_KEY = cleanEnv(process.env.B2_APP_KEY);
 const B2_BUCKET_NAME = cleanEnv(process.env.B2_BUCKET_NAME);
+const B2_AUDIO_BUCKET_NAME = cleanEnv(
+  process.env.B2_AUDIO_BUCKET_NAME || process.env.B2_BUCKET_NAME
+);
+
+const B2_COVER_BUCKET_NAME = cleanEnv(
+  process.env.B2_COVER_BUCKET_NAME || process.env.B2_BUCKET_NAME
+);
 const B2_REGION = cleanEnv(process.env.B2_REGION);
 
 const b2 = new S3Client({
@@ -43,9 +50,26 @@ async function getFileUrl(fileKey) {
   });
 }
 
+function getPublicCoverUrl(fileKey) {
+  if (!fileKey) return null;
+
+  if (fileKey.startsWith("http")) {
+    return fileKey;
+  }
+
+  if (!process.env.B2_COVER_PUBLIC_URL) {
+    return null;
+  }
+
+  return `${process.env.B2_COVER_PUBLIC_URL}/${encodeURIComponent(fileKey).replace(/%2F/g, "/")}`;
+}
+
 module.exports = {
   b2,
   getFileUrl,
+  getPublicCoverUrl,
+  B2_AUDIO_BUCKET_NAME,
+  B2_COVER_BUCKET_NAME,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,

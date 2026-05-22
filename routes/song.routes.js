@@ -12,10 +12,10 @@ const {
 const {
   b2,
   getFileUrl,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-  ListObjectVersionsCommand
+  getPublicCoverUrl,
+  B2_AUDIO_BUCKET_NAME,
+  B2_COVER_BUCKET_NAME,
+  PutObjectCommand
 } = require("../services/storage.service");
 
 const {
@@ -69,21 +69,29 @@ const upload = multer({
 router.get("/songs", requireLogin, async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
-    const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const cursor = Number(req.query.cursor) || null;
+
+    const params = [limit];
+    let cursorSql = "";
+
+    if (cursor) {
+      params.push(cursor);
+      cursorSql = "WHERE id < $2";
+    }
 
     const result = await pool.query(
       `
-      SELECT 
-  id, title, artist, genre, album, mood, year, duration, cover_url, lyrics
+      SELECT id, title, artist, genre, album, mood, year, duration, cover_url
       FROM songs
+      ${cursorSql}
       ORDER BY id DESC
-      LIMIT $1 OFFSET $2
+      LIMIT $1
       `,
-      [limit, offset]
+      params
     );
 
-    const songs = await Promise.all(
-      result.rows.map(async (s) => ({
+    res.json({
+      songs: result.rows.map(s => ({
         id: s.id,
         title: s.title,
         artist: s.artist,
@@ -92,18 +100,11 @@ router.get("/songs", requireLogin, async (req, res) => {
         mood: s.mood,
         year: s.year,
         duration: s.duration,
-        lyrics: s.lyrics,
-        coverUrl: s.cover_url ? await getFileUrl(s.cover_url) : null
-      }))
-    );
-
-    res.json({
-      songs,
-      limit,
-      offset,
-      hasMore: songs.length === limit
+        coverUrl: getPublicCoverUrl(s.cover_url)
+      })),
+      nextCursor: result.rows.at(-1)?.id || null,
+      hasMore: result.rows.length === limit
     });
-
   } catch (err) {
     console.error("LOAD SONGS ERROR:", err);
     res.status(500).json({ error: "Failed to load songs" });
@@ -216,11 +217,9 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
       let genre =
         metadata.common?.genre?.[0] || null;
 
+      // Do not block uploads on slow external genre lookup.
       if (!genre) {
-        genre = await fetchGenreFromITunes({
-          title,
-          artist
-        });
+        genre = "unknown";
       }
 
       if (!genre) {
@@ -484,7 +483,7 @@ const result = await pool.query(
         mood: s.mood,
         lyrics: s.lyrics,
         year: s.year,
-        coverUrl: s.cover_url
+        coverUrl: getPublicCoverUrl(s.cover_url)
           ? await getFileUrl(s.cover_url)
           : null
       };

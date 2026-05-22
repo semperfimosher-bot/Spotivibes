@@ -39,7 +39,7 @@ body {
   height: 54px;
   padding: 0 26px;
 
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid #00b7ff;
 
   background: rgba(0, 0, 0, 0.35);
@@ -68,7 +68,7 @@ body {
 
   width: 444px;
   height: 59px;
-  border-radius: 999px;
+  border-radius: 8px;
 
   display: flex;
   align-items: center;

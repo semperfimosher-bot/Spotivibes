@@ -35,7 +35,7 @@ async function apiFetch(url, options = {}) {
 // =========================
 // LOAD SONGS
 // =========================
-let songsOffset = 0;
+let songsCursor = null;
 let songsLoading = false;
 let songsHasMore = true;
 
@@ -45,7 +45,7 @@ async function loadSongs(reset = true) {
   songsLoading = true;
 
   if (reset) {
-    songsOffset = 0;
+    songsCursor = null;
     songsHasMore = true;
     state.songs = [];
   }
@@ -53,7 +53,8 @@ async function loadSongs(reset = true) {
   let data;
 
 try {
-  data = await apiFetch(`/api/songs?limit=50&offset=${songsOffset}`);
+  const cursorParam = songsCursor ? `&cursor=${songsCursor}` : "";
+data = await apiFetch(`/api/songs?limit=50${cursorParam}`);
 } catch (err) {
   console.warn("Failed to load songs:", err.message);
   songsLoading = false;
@@ -66,8 +67,8 @@ songsLoading = false;
     ? data.songs || []
     : [...state.songs, ...(data.songs || [])];
 
-  songsOffset += data.songs?.length || 0;
-  songsHasMore = data.hasMore;
+  songsCursor = data.nextCursor;
+songsHasMore = data.hasMore;
 
   renderHome();
 }

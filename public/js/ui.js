@@ -611,6 +611,10 @@ row.querySelector(".remove-playlist-btn")
 
   return row;
 }
+
+function getSongCover(song) {
+  return song.coverUrl || song.cover_url || song.image || song.artwork || "";
+}
 function createSongCard(song) {
   const card = document.createElement("div");
   card.className = "card";
@@ -620,7 +624,7 @@ function createSongCard(song) {
 
     <div 
      class="thumb" 
-     style="background-image: url('${song.coverUrl || ""}')"
+     style="background-image:url('${getSongCover(song)}')"
     ></div>
 
     <div class="song-card-footer">
@@ -664,7 +668,7 @@ function createSongRow(song) {
 
       <div
         class="row-thumb"
-        style="background-image:url('${song.coverUrl || ""}')"
+        style="background-image:url('${getSongCover(song)}')"
       ></div>
 
       <div>
@@ -779,7 +783,7 @@ function createCompactSongRow(song) {
   row.innerHTML = `
     <div
       class="compact-thumb"
-      style="background-image:url('${song.coverUrl || ""}')"
+      style="background-image:url('${getSongCover(song)}')"
     ></div>
 
     <div class="compact-info">
@@ -801,7 +805,7 @@ function createSidebarLibraryRow(song) {
   row.innerHTML = `
     <div
       class="sidebar-library-thumb"
-      style="background-image:url('${song.coverUrl || ""}')"
+      style="background-image:url('${getSongCover(song)}')"
     ></div>
 
     <div class="sidebar-library-info">
@@ -1006,7 +1010,7 @@ function renderLibrary() {
     }
   });
 
-  songs.forEach(s => {
+  songs.slice(0, 100).forEach(s => {
     list.appendChild(createSongRow(s));
 
     if (sidebarList) {

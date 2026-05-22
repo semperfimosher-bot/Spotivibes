@@ -157,6 +157,21 @@ await pool.query(`
     (COALESCE(title, '') || ' ' || COALESCE(artist, '') || ' ' || COALESCE(album, '') || ' ' || COALESCE(genre, '')) gin_trgm_ops
   )
 `);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_songs_id_desc_fast
+  ON songs (id DESC)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_user_library_user_song_fast
+  ON user_library (user_id, song_id DESC)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_playlist_songs_song_fast
+  ON playlist_songs (song_id)
+`);
 }
 
 module.exports = initDB;
