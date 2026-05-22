@@ -982,6 +982,26 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
     0 0 10px rgba(0, 76, 255, 0.25);
 }
 
+#lyricsText {
+  max-height: 280px;
+  overflow-y: auto;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.8;
+}
+
+.lyric-line {
+  opacity: 0.45;
+  transform: scale(0.96);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.lyric-line.active {
+  opacity: 1;
+  transform: scale(1.08);
+  font-weight: 700;
+}
+
 /* =========================
    DESKTOP PLAYER BAR
 ========================= */

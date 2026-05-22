@@ -30,6 +30,18 @@ router.get("/", requireLogin, async (req, res) => {
 router.post("/play", requireLogin, async (req, res) => {
   const { songId } = req.body;
 
+
+  const songCheck = await pool.query(
+  "SELECT id FROM songs WHERE id = $1",
+  [songId]
+);
+
+if (!songCheck.rows.length) {
+  return res.status(404).json({
+    error: "Song no longer exists"
+  });
+}
+
   await pool.query(
     `
     INSERT INTO listening_history (user_id, song_id)

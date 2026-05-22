@@ -15,7 +15,8 @@ const {
   getPublicCoverUrl,
   B2_AUDIO_BUCKET_NAME,
   B2_COVER_BUCKET_NAME,
-  PutObjectCommand
+  PutObjectCommand,
+  DeleteObjectCommand
 } = require("../services/storage.service");
 
 const {
@@ -218,16 +219,15 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
         metadata.common?.artist || "Unknown";
 
       let genre =
-        metadata.common?.genre?.[0] || null;
+  Array.isArray(metadata.common?.genre)
+    ? metadata.common.genre.filter(Boolean).join(", ")
+    : metadata.common?.genre || null;
 
-      // Do not block uploads on slow external genre lookup.
-      if (!genre) {
-        genre = "unknown";
-      }
+genre = genre?.trim() || null;
 
-      if (!genre) {
-        genre = "unknown";
-      }
+if (!genre) {
+  genre = "unknown";
+}
 
       const album =
         metadata.common?.album || null;
@@ -302,6 +302,23 @@ if (picture?.data?.length) {
 
 const songId = inserted.rows[0].id;
 
+if (!genre || genre.toLowerCase() === "unknown") {
+  fetchGenreFromITunes({ title, artist })
+    .then(async (foundGenre) => {
+      if (!foundGenre) return;
+
+      await pool.query(
+        "UPDATE songs SET genre = $1 WHERE id = $2",
+        [foundGenre, songId]
+      );
+
+      console.log(`Genre updated: ${artist} - ${title} → ${foundGenre}`);
+    })
+    .catch(err =>
+      console.warn("Genre background fetch failed:", err.message)
+    );
+}
+
 fetchLyrics({
   title,
   artist,
@@ -362,68 +379,71 @@ res.json({
 /* ---------------- DELETE SONG ---------------- */
 
 router.delete("/songs/:id", requireAdmin, async (req, res) => {
+  const songId = req.params.id;
+
   try {
     const songResult = await pool.query(
       "SELECT * FROM songs WHERE id = $1",
-      [req.params.id]
+      [songId]
     );
 
     const song = songResult.rows[0];
 
     if (!song) {
-      return res.status(404).json({ error: "Not found" });
+      return res.status(404).json({ error: "Song not found" });
     }
 
-    let fileKey = song.audio_url;
-
-    if (fileKey && fileKey.includes("http")) {
-      const url = new URL(fileKey);
-      fileKey = url.pathname.split("/file/")[1];
-    }
-
-    const versions = await b2.send(
-      new ListObjectVersionsCommand({
-        Bucket: process.env.B2_BUCKET_NAME,
-        Prefix: fileKey
-      })
-    );
-
-    const allVersions = [
-      ...(versions.Versions || []),
-      ...(versions.DeleteMarkers || [])
-    ];
-
-    for (const v of allVersions) {
-      if (v.Key === fileKey) {
+    // Delete audio from private audio bucket
+    if (song.audio_url) {
+      try {
         await b2.send(
           new DeleteObjectCommand({
-            Bucket: process.env.B2_BUCKET_NAME,
-            Key: fileKey,
-            VersionId: v.VersionId
+            Bucket: B2_AUDIO_BUCKET_NAME,
+            Key: song.audio_url
           })
         );
+      } catch (err) {
+        console.warn("AUDIO DELETE WARNING:", err.message);
       }
     }
 
+    // Delete cover from public cover bucket
+    if (song.cover_url) {
+      try {
+        await b2.send(
+          new DeleteObjectCommand({
+            Bucket: B2_COVER_BUCKET_NAME,
+            Key: song.cover_url
+          })
+        );
+      } catch (err) {
+        console.warn("COVER DELETE WARNING:", err.message);
+      }
+    }
+
+    await pool.query("BEGIN");
+
     await pool.query(
-  "DELETE FROM playlist_songs WHERE song_id = $1",
-  [req.params.id]
-);
+      "DELETE FROM playlist_songs WHERE song_id = $1",
+      [songId]
+    );
 
-await pool.query(
-  "DELETE FROM user_library WHERE song_id = $1",
-  [req.params.id]
-);
+    await pool.query(
+      "DELETE FROM user_library WHERE song_id = $1",
+      [songId]
+    );
 
-await pool.query(
-  "DELETE FROM listening_history WHERE song_id = $1",
-  [req.params.id]
-);
+    await pool.query(
+      "DELETE FROM listening_history WHERE song_id = $1",
+      [songId]
+    );
 
     await pool.query(
       "DELETE FROM songs WHERE id = $1",
-      [req.params.id]
+      [songId]
     );
+
+    await pool.query("COMMIT");
 
     await addNotification(
       "SONG_DELETED",
@@ -433,8 +453,9 @@ await pool.query(
     res.json({ success: true });
 
   } catch (err) {
+    await pool.query("ROLLBACK").catch(() => {});
     console.error("DELETE SONG ERROR:", err);
-    res.status(500).json({ error: "Server error" });
+    res.status(500).json({ error: "Failed to delete song" });
   }
 });
 

@@ -5,7 +5,8 @@ const {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
-  ListObjectVersionsCommand
+  DeleteObjectsCommand,
+  ListObjectsV2Command
 } = require("@aws-sdk/client-s3");
 
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
@@ -73,5 +74,6 @@ module.exports = {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
-  ListObjectVersionsCommand
+  DeleteObjectsCommand,
+  ListObjectsV2Command
 };

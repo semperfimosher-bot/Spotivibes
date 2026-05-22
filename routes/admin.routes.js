@@ -10,10 +10,44 @@ const {
 
 const {
   b2,
-  getPublicCoverUrl,
+  B2_AUDIO_BUCKET_NAME,
   B2_COVER_BUCKET_NAME,
-  PutObjectCommand
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command
 } = require("../services/storage.service");
+
+async function deleteB2Prefix(bucketName, prefix) {
+  let ContinuationToken;
+
+  do {
+    const listResult = await b2.send(
+      new ListObjectsV2Command({
+        Bucket: bucketName,
+        Prefix: prefix,
+        ContinuationToken
+      })
+    );
+
+    const objects = (listResult.Contents || []).map(obj => ({
+      Key: obj.Key
+    }));
+
+    if (objects.length > 0) {
+      await b2.send(
+        new DeleteObjectsCommand({
+          Bucket: bucketName,
+          Delete: {
+            Objects: objects,
+            Quiet: true
+          }
+        })
+      );
+    }
+
+    ContinuationToken = listResult.NextContinuationToken;
+  } while (ContinuationToken);
+}
 
 const {
   addNotification
@@ -57,15 +91,82 @@ router.post("/admin/delete-all-content", requireAdmin, async (req, res) => {
       });
     }
 
-    await pool.query("DELETE FROM playlist_songs");
-    await pool.query("DELETE FROM playlists");
-    await pool.query("DELETE FROM notifications");
-    await pool.query("DELETE FROM settings");
-    await pool.query("DELETE FROM songs");
+    const songsResult = await pool.query(`
+      SELECT audio_url, cover_url
+      FROM songs
+    `);
+
+    const settingsResult = await pool.query(`
+      SELECT value
+      FROM settings
+      WHERE key = 'background'
+    `);
+
+    for (const song of songsResult.rows) {
+      if (song.audio_url) {
+        try {
+          await b2.send(
+            new DeleteObjectCommand({
+              Bucket: B2_AUDIO_BUCKET_NAME,
+              Key: song.audio_url
+            })
+          );
+        } catch (err) {
+          console.warn("AUDIO DELETE WARNING:", song.audio_url, err.message);
+        }
+      }
+
+      if (song.cover_url) {
+        try {
+          await b2.send(
+            new DeleteObjectCommand({
+              Bucket: B2_COVER_BUCKET_NAME,
+              Key: song.cover_url
+            })
+          );
+        } catch (err) {
+          console.warn("COVER DELETE WARNING:", song.cover_url, err.message);
+        }
+      }
+    }
+
+    for (const row of settingsResult.rows) {
+      if (row.value) {
+        try {
+          await b2.send(
+            new DeleteObjectCommand({
+              Bucket: B2_COVER_BUCKET_NAME,
+              Key: row.value
+            })
+          );
+        } catch (err) {
+          console.warn("BACKGROUND DELETE WARNING:", row.value, err.message);
+        }
+      }
+    }
+
+await deleteB2Prefix(B2_AUDIO_BUCKET_NAME, "songs/");
+await deleteB2Prefix(B2_COVER_BUCKET_NAME, "covers/");
+await deleteB2Prefix(B2_COVER_BUCKET_NAME, "backgrounds/");
+await deleteB2Prefix(B2_COVER_BUCKET_NAME, "avatars/");
+
+await pool.query("BEGIN");
+
+await pool.query("DELETE FROM playlist_songs");
+await pool.query("DELETE FROM user_library");
+await pool.query("DELETE FROM listening_history");
+await pool.query("DELETE FROM playlists");
+await pool.query("DELETE FROM notifications");
+await pool.query("DELETE FROM settings");
+await pool.query("DELETE FROM songs");
+
+await pool.query("COMMIT");
 
     res.json({ success: true });
 
   } catch (err) {
+    await pool.query("ROLLBACK").catch(() => {});
+
     console.error("DELETE ALL CONTENT ERROR:", err);
 
     res.status(500).json({
