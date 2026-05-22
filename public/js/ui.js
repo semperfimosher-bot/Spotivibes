@@ -1320,6 +1320,17 @@ function initProfileMenu() {
       body: formData
     });
 
+    if (data.profilePicUrl) {
+  document.querySelectorAll("#profileAvatar, #userAvatar, .profile-avatar")
+    .forEach(avatar => {
+      if (avatar.tagName === "IMG") {
+        avatar.src = data.profilePicUrl;
+      } else {
+        avatar.style.backgroundImage = `url('${data.profilePicUrl}')`;
+      }
+    });
+}
+
     if (!data) {
       alert("Upload failed");
       return;
@@ -1550,9 +1561,8 @@ async function loadSavedPlaylists() {
 async function loadUser() {
   try {
     const data = await apiFetch("/api/me");
-    
-    const userBox =
-      document.getElementById("userBox");
+
+    const userBox = document.getElementById("userBox");
 
     if (userBox && data.user) {
       userBox.innerText =
@@ -1562,21 +1572,14 @@ async function loadUser() {
     const profileAvatar =
       document.getElementById("profileAvatar");
 
-    if (
-      profileAvatar &&
-      data.user?.profilePicture
-    ) {
-
+    if (profileAvatar && data.user?.profilePicUrl) {
       profileAvatar.innerHTML = "";
 
       profileAvatar.style.backgroundImage =
-        `url('${data.user.profilePicture}')`;
+        `url('${data.user.profilePicUrl}')`;
 
-      profileAvatar.style.backgroundSize =
-        "cover";
-
-      profileAvatar.style.backgroundPosition =
-        "center";
+      profileAvatar.style.backgroundSize = "cover";
+      profileAvatar.style.backgroundPosition = "center";
     }
 
   } catch (err) {

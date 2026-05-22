@@ -10,8 +10,10 @@ const {
 
 const {
   b2,
+  getPublicCoverUrl,
   B2_AUDIO_BUCKET_NAME,
   B2_COVER_BUCKET_NAME,
+  PutObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
   ListObjectsV2Command

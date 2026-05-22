@@ -16,6 +16,7 @@ const {
   B2_AUDIO_BUCKET_NAME,
   B2_COVER_BUCKET_NAME,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand
 } = require("../services/storage.service");
 
@@ -150,7 +151,7 @@ router.get("/songs/:id/download", requireLogin, async (req, res) => {
     }
 
     const command = new GetObjectCommand({
-      Bucket: process.env.B2_BUCKET_NAME,
+      Bucket: B2_AUDIO_BUCKET_NAME,
       Key: song.audio_url,
     });
 
@@ -198,6 +199,7 @@ router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, re
 
     for (const file of req.files) {
       const fileKey = `songs/${Date.now()}-${file.originalname}`;
+      let coverKey = null;
 
       try {
 
@@ -235,7 +237,6 @@ if (!genre) {
       const duration =
         metadata.format?.duration || null;
 
-      let coverKey = null;
       let lyrics = null;
 
       const year =
@@ -356,6 +357,32 @@ results.push({
 
     } catch (fileErr) {
   console.error("FAILED FILE:", file.originalname, fileErr);
+
+  if (fileKey) {
+    try {
+      await b2.send(
+        new DeleteObjectCommand({
+          Bucket: B2_AUDIO_BUCKET_NAME,
+          Key: fileKey
+        })
+      );
+    } catch (cleanupErr) {
+      console.warn("Audio cleanup failed:", cleanupErr.message);
+    }
+  }
+
+  if (coverKey) {
+    try {
+      await b2.send(
+        new DeleteObjectCommand({
+          Bucket: B2_COVER_BUCKET_NAME,
+          Key: coverKey
+        })
+      );
+    } catch (cleanupErr) {
+      console.warn("Cover cleanup failed:", cleanupErr.message);
+    }
+  }
 
   results.push({
     filename: file.originalname,

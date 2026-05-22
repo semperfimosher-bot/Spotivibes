@@ -18,7 +18,8 @@ const {
 
 const {
   b2,
-  getFileUrl,
+  getPublicCoverUrl,
+  B2_COVER_BUCKET_NAME,
   PutObjectCommand
 } = require("../services/storage.service");
 
@@ -202,10 +203,7 @@ router.get("/me", async (req, res) => {
       lastName: user.last_name,
       role: user.role,
 
-      profilePicture:
-        user.profile_picture
-          ? await getFileUrl(user.profile_picture)
-          : null
+      profilePicUrl: getPublicCoverUrl(user.profile_pic_url)
     }
   });
 });
@@ -217,49 +215,65 @@ router.post(
   requireLogin,
   upload.single("image"),
   async (req, res) => {
-
     try {
-
       if (!req.file) {
         return res.status(400).json({
           error: "No image uploaded"
         });
       }
 
-      const key =
-        `profiles/${Date.now()}-${req.file.originalname}`;
+      const ext =
+        req.file.originalname.split(".").pop()?.toLowerCase() || "jpg";
+
+      const safeName = req.file.originalname
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-zA-Z0-9-_]/g, "_")
+        .slice(0, 60);
+
+      const fileKey =
+        `profiles/${req.session.user.id}-${Date.now()}-${safeName}.${ext}`;
 
       await b2.send(
         new PutObjectCommand({
-          Bucket: process.env.B2_BUCKET_NAME,
-          Key: key,
+          Bucket: B2_COVER_BUCKET_NAME,
+          Key: fileKey,
           Body: req.file.buffer,
-          ContentType: req.file.mimetype
+          ContentType: req.file.mimetype,
+          CacheControl: "public, max-age=31536000"
         })
       );
 
       await pool.query(
         `
         UPDATE users
-        SET profile_picture = $1
+        SET profile_pic_url = $1
         WHERE id = $2
         `,
-        [key, req.session.user.id]
+        [fileKey, req.session.user.id]
       );
 
       res.json({
         success: true,
-        profilePicture: await getFileUrl(key)
+        profilePicUrl: getPublicCoverUrl(fileKey)
       });
 
     } catch (err) {
-
       console.error("PROFILE PIC ERROR:", err);
 
       res.status(500).json({
         error: "Upload failed"
       });
     }
+  }
+);
+
+router.post(
+  "/profile-pic",
+  requireLogin,
+  upload.single("image"),
+  async (req, res, next) => {
+    req.url = "/profile-picture";
+    next();
   }
 );
 

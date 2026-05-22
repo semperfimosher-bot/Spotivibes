@@ -110,7 +110,8 @@ if (failed.length) {
   status.innerText = `${failed.length} file(s) failed. Check console.`;
 }
 
-uploaded += batch.length;
+const successCount = data.results?.filter(r => r.success).length || 0;
+uploaded += successCount;
 
     const percent = Math.round((uploaded / files.length) * 100);
 
