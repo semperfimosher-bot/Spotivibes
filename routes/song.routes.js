@@ -83,7 +83,7 @@ router.get("/songs", requireLogin, async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT id, title, artist, genre, album, mood, year, duration, cover_url
+      SELECT id, title, artist, genre, album, mood, year, duration, cover_url, lyrics
       FROM songs
       ${cursorSql}
       ORDER BY id DESC
@@ -102,6 +102,7 @@ router.get("/songs", requireLogin, async (req, res) => {
         mood: s.mood,
         year: s.year,
         duration: s.duration,
+        lyrics: s.lyrics,
         coverUrl: getPublicCoverUrl(s.cover_url)
       })),
       nextCursor: result.rows.at(-1)?.id || null,
@@ -132,6 +133,50 @@ router.get("/songs/:id/audio-url", requireLogin, async (req, res) => {
   } catch (err) {
     console.error("AUDIO URL ERROR:", err);
     res.status(500).json({ error: "Failed to get audio URL" });
+  }
+});
+
+router.get("/songs/:id/lyrics", requireLogin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT id, title, artist, album, genre, duration, year, lyrics
+      FROM songs
+      WHERE id = $1
+      `,
+      [req.params.id]
+    );
+
+    const song = result.rows[0];
+
+    if (!song) {
+      return res.status(404).json({ error: "Song not found" });
+    }
+
+    if (song.lyrics) {
+      return res.json({ lyrics: song.lyrics });
+    }
+
+    const foundLyrics = await fetchLyrics({
+      title: song.title,
+      artist: song.artist,
+      album: song.album,
+      genre: song.genre,
+      duration: song.duration,
+      year: song.year
+    });
+
+    if (foundLyrics) {
+      await pool.query(
+        "UPDATE songs SET lyrics = $1 WHERE id = $2",
+        [foundLyrics, song.id]
+      );
+    }
+
+    res.json({ lyrics: foundLyrics || null });
+  } catch (err) {
+    console.error("LYRICS ERROR:", err);
+    res.status(500).json({ error: "Failed to load lyrics" });
   }
 });
 

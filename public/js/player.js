@@ -121,7 +121,17 @@ async function playSong(id) {
       : "";
   }
 
-  loadSyncedLyrics(song.lyrics);
+  loadSyncedLyrics(null);
+
+getLyrics(song)
+  .then(lyrics => {
+    loadSyncedLyrics(lyrics);
+  })
+  .catch(err => {
+    console.warn("Lyrics load failed:", err.message);
+    loadSyncedLyrics(null);
+  });
+
   updatePlayButton();
   highlightCurrentSong?.();
   preloadNextTwoSongs();
@@ -439,23 +449,29 @@ progressBar?.addEventListener("mouseleave", () => {
 function parseLRC(lyrics) {
   if (!lyrics) return [];
 
-  return lyrics
-    .split("\n")
-    .map(line => {
-      const match = line.match(/\[(\d+):(\d+\.\d+)\](.*)/);
+  const lines = [];
 
-      if (!match) return null;
+  lyrics.split("\n").forEach(line => {
+    const timeMatches = [...line.matchAll(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g)];
+    const text = line
+      .replace(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g, "")
+      .trim();
 
+    if (!timeMatches.length || !text) return;
+
+    timeMatches.forEach(match => {
       const minutes = Number(match[1]);
       const seconds = Number(match[2]);
-      const text = match[3].trim();
+      const ms = Number((match[3] || "0").padEnd(3, "0"));
 
-      return {
-        time: minutes * 60 + seconds,
+      lines.push({
+        time: minutes * 60 + seconds + ms / 1000,
         text
-      };
-    })
-    .filter(item => item && item.text);
+      });
+    });
+  });
+
+  return lines.sort((a, b) => a.time - b.time);
 }
 
 function loadSyncedLyrics(lyrics) {
@@ -564,7 +580,17 @@ async function restoreLastPlayback() {
       : "";
   }
 
-  loadSyncedLyrics?.(song.lyrics);
+  loadSyncedLyrics(null);
+
+getLyrics(song)
+  .then(lyrics => {
+    loadSyncedLyrics(lyrics);
+  })
+  .catch(err => {
+    console.warn("Lyrics load failed:", err.message);
+    loadSyncedLyrics(null);
+  });
+
   updatePlayButton();
 
   // audio loads after UI

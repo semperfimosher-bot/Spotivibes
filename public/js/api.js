@@ -103,6 +103,28 @@ try {
   return url;
 }
 
+const lyricsCache = new Map();
+
+async function getLyrics(song) {
+  if (!song?.id) return null;
+
+  if (song.lyrics) return song.lyrics;
+
+  if (lyricsCache.has(song.id)) {
+    return lyricsCache.get(song.id);
+  }
+
+  const data = await apiFetch(`/api/songs/${song.id}/lyrics`);
+  const lyrics = data?.lyrics || null;
+
+  if (lyrics) {
+    song.lyrics = lyrics;
+  }
+
+  lyricsCache.set(song.id, lyrics);
+  return lyrics;
+}
+
 // =========================
 // LOAD BACKGROUND
 // =========================
