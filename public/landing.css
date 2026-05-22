@@ -1,3 +1,10 @@
+:root {
+  --button-color: #222222ba;
+  --button-hover: #393939a4;
+  --button-text: rgb(255, 255, 255);
+  --button-border: rgba(255, 255, 255, 0);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -74,22 +81,30 @@ body {
 }
 
 .login-btn {
-  top: 38%;
-  color: white;
-  background: linear-gradient(135deg, #10bfff, #001eff);
-  box-shadow: 0 0 34px rgba(0, 76, 255, 0.45);
+  top: 78%;
+  color: var(--button-text);
+
+  background: var(--button-color);
+
+  border: 1px solid var(--button-border);
+
+  box-shadow: 0 0 24px rgba(255,255,255,0.08);
 }
 
 .create-btn {
-  top: 48.5%;
-  color: #20baff;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid #00aaff;
-  box-shadow: inset 0 0 18px rgba(0, 170, 255, 0.14);
+  top: 88.5%;
+  color: var(--button-text);
+
+  background: var(--button-color);
+
+  border: 1px solid var(--button-border);
+
+  box-shadow: inset 0 0 18px rgba(255,255,255,0.05);
 }
 
 .login-btn:hover,
 .create-btn:hover {
+  background: var(--button-hover);
   transform: translateX(-50%) translateY(-1px);
 }
 
@@ -99,17 +114,17 @@ body {
 
 @media (max-width: 700px) {
   .landing {
-    width: 100vw;
-    min-height: 100vh;
+  width: 100vw;
+  min-height: 100vh;
 
-    background-size: contain;
-    background-position: top center;
-    background-repeat: no-repeat;
-    background-color: #02040a;
-  }
+  background-size: auto 100vh;
+  background-position: center 55px;
+  background-repeat: no-repeat;
+  background-color: #02040a;
+}
 
   .download-btn {
-    top: 16px;
+    top: 32px;
     right: 14px;
     height: 42px;
     padding: 0 14px;
@@ -124,10 +139,10 @@ body {
   }
 
   .login-btn {
-    top: 70%;
+    top: 75%;
   }
 
   .create-btn {
-    top: 79%;
+    top: 85%;
   }
 }
