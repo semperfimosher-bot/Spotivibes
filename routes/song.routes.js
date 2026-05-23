@@ -234,219 +234,220 @@ router.get("/songs/:id/download", requireLogin, async (req, res) => {
 
 /* ---------------- UPLOAD SONGS ---------------- */
 
-router.post("/upload-files", requireAdmin, upload.array("songs"), async (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: "No files uploaded" });
+router.post(
+  "/upload-files",
+
+  (req, res, next) => {
+    const token = req.headers["x-upload-token"];
+
+    if (
+      token &&
+      token === process.env.FOLDER_UPLOAD_TOKEN
+    ) {
+      return next();
     }
 
+    return requireAdmin(req, res, next);
+  },
+
+  upload.array("songs", 20),
+
+  async (req, res) => {
     const results = [];
 
+    if (!req.files || !req.files.length) {
+      return res.status(400).json({
+        error: "No files uploaded"
+      });
+    }
+
     for (const file of req.files) {
-      const fileKey = `songs/${Date.now()}-${file.originalname}`;
+      let fileKey = null;
       let coverKey = null;
 
       try {
+        fileKey = `songs/${Date.now()}-${file.originalname}`;
 
-      let metadata = {};
+        let metadata = {};
 
-      try {
-        metadata = await mm.parseBuffer(file.buffer, {
-  mimeType: file.mimetype,
-  path: file.originalname
-});
-      } catch (err) {
-        console.warn("Could not read metadata:", file.originalname);
+        try {
+          metadata = await mm.parseBuffer(file.buffer, {
+            mimeType: file.mimetype,
+            path: file.originalname
+          });
+        } catch (metaErr) {
+          console.warn("Metadata parse failed:", file.originalname, metaErr.message);
+        }
+
+        const title =
+          metadata.common?.title ||
+          file.originalname.replace(/\.[^/.]+$/, "");
+
+        const artist =
+          metadata.common?.artist ||
+          "Unknown Artist";
+
+        const album =
+          metadata.common?.album ||
+          "Unknown Album";
+
+        let genre =
+          Array.isArray(metadata.common?.genre)
+            ? metadata.common.genre.filter(Boolean).join(", ")
+            : metadata.common?.genre || null;
+
+        genre = genre?.trim() || null;
+
+        if (!genre) {
+          genre = "unknown";
+        }
+
+        const year =
+          metadata.common?.year
+            ? String(metadata.common.year)
+            : null;
+
+        const duration =
+          metadata.format?.duration || null;
+
+        const lyrics =
+          metadata.common?.lyrics?.[0] ||
+          metadata.native?.ID3v2?.find(t => t.id === "USLT")?.value?.text ||
+          null;
+
+        const picture =
+          metadata.common?.picture?.find(p => p?.data?.length) ||
+          metadata.common?.picture?.[0];
+
+        if (picture?.data?.length) {
+          const imageExt =
+            picture.format === "image/png" ? "png" :
+            picture.format === "image/webp" ? "webp" :
+            "jpg";
+
+          const safeName = file.originalname
+            .replace(/\.[^/.]+$/, "")
+            .replace(/[^a-zA-Z0-9-_]/g, "_")
+            .slice(0, 80);
+
+          coverKey = `covers/${Date.now()}-${safeName}.${imageExt}`;
+
+          await b2.send(
+            new PutObjectCommand({
+              Bucket: B2_COVER_BUCKET_NAME,
+              Key: coverKey,
+              Body: Buffer.from(picture.data),
+              ContentType: picture.format || "image/jpeg",
+              CacheControl: "public, max-age=31536000, immutable"
+            })
+          );
+        }
+
+        await b2.send(
+          new PutObjectCommand({
+            Bucket: B2_AUDIO_BUCKET_NAME,
+            Key: fileKey,
+            Body: file.buffer,
+            ContentType: file.mimetype || "audio/mpeg"
+          })
+        );
+
+        const inserted = await pool.query(
+          `
+          INSERT INTO songs
+          (
+            title,
+            artist,
+            album,
+            genre,
+            year,
+            duration,
+            audio_url,
+            cover_url,
+            lyrics
+          )
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+          RETURNING id
+          `,
+          [
+            title,
+            artist,
+            album,
+            genre,
+            year,
+            duration,
+            fileKey,
+            coverKey,
+            lyrics
+          ]
+        );
+
+        const songId = inserted.rows[0].id;
+
+        if (!genre || genre.toLowerCase() === "unknown") {
+          fetchGenreFromITunes({ title, artist })
+            .then(async (foundGenre) => {
+              if (!foundGenre) return;
+
+              await pool.query(
+                "UPDATE songs SET genre = $1 WHERE id = $2",
+                [foundGenre, songId]
+              );
+            })
+            .catch(err => {
+              console.warn("Genre background fetch failed:", err.message);
+            });
+        }
+
+        results.push({
+          filename: file.originalname,
+          success: true,
+          songId
+        });
+
+      } catch (fileErr) {
+        console.error("FAILED FILE:", file.originalname, fileErr);
+
+        if (fileKey) {
+          try {
+            await b2.send(
+              new DeleteObjectCommand({
+                Bucket: B2_AUDIO_BUCKET_NAME,
+                Key: fileKey
+              })
+            );
+          } catch (cleanupErr) {
+            console.warn("Audio cleanup failed:", cleanupErr.message);
+          }
+        }
+
+        if (coverKey) {
+          try {
+            await b2.send(
+              new DeleteObjectCommand({
+                Bucket: B2_COVER_BUCKET_NAME,
+                Key: coverKey
+              })
+            );
+          } catch (cleanupErr) {
+            console.warn("Cover cleanup failed:", cleanupErr.message);
+          }
+        }
+
+        results.push({
+          filename: file.originalname,
+          success: false,
+          error: fileErr.message
+        });
       }
-
-      const title =
-        metadata.common?.title || file.originalname;
-
-      const artist =
-        metadata.common?.artist || "Unknown";
-
-      let genre =
-  Array.isArray(metadata.common?.genre)
-    ? metadata.common.genre.filter(Boolean).join(", ")
-    : metadata.common?.genre || null;
-
-genre = genre?.trim() || null;
-
-if (!genre) {
-  genre = "unknown";
-}
-
-      const album =
-        metadata.common?.album || null;
-
-      const duration =
-        metadata.format?.duration || null;
-
-      let lyrics = null;
-
-      const year =
-        metadata.common?.year?.toString() || null;
-
-      lyrics = null;
-
-      const picture =
-  metadata.common?.picture?.find(p => p?.data?.length) ||
-  metadata.common?.picture?.[0];
-
-if (picture?.data?.length) {
-  const imageExt =
-    picture.format === "image/png" ? "png" : "jpg";
-
-  const safeName = file.originalname
-    .replace(/\.[^/.]+$/, "")
-    .replace(/[^a-zA-Z0-9-_]/g, "_")
-    .slice(0, 80);
-
-  coverKey = `covers/${Date.now()}-${safeName}.${imageExt}`;
-
-  await b2.send(
-    new PutObjectCommand({
-      Bucket: B2_COVER_BUCKET_NAME,
-      Key: coverKey,
-      Body: Buffer.from(picture.data),
-      ContentType: picture.format || "image/jpeg",
-      CacheControl: "public, max-age=31536000, immutable"
-    })
-  );
-} else {
-  console.warn("NO ALBUM ART FOUND:", file.originalname);
-}
-
-      await b2.send(
-        new PutObjectCommand({
-          Bucket: B2_AUDIO_BUCKET_NAME,
-          Key: fileKey,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-        })
-      );
-
-      const inserted = await pool.query(
-  `
-  INSERT INTO songs 
-  (title, artist, audio_url, genre, album, duration, cover_url, lyrics, year)
-  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-  RETURNING id
-  `,
-  [
-    title,
-    artist,
-    fileKey,
-    genre,
-    album,
-    duration,
-    coverKey,
-    lyrics,
-    year
-  ]
-);
-
-const songId = inserted.rows[0].id;
-
-if (!genre || genre.toLowerCase() === "unknown") {
-  fetchGenreFromITunes({ title, artist })
-    .then(async (foundGenre) => {
-      if (!foundGenre) return;
-
-      await pool.query(
-        "UPDATE songs SET genre = $1 WHERE id = $2",
-        [foundGenre, songId]
-      );
-
-      console.log(`Genre updated: ${artist} - ${title} → ${foundGenre}`);
-    })
-    .catch(err =>
-      console.warn("Genre background fetch failed:", err.message)
-    );
-}
-
-fetchLyrics({
-  title,
-  artist,
-  album,
-  genre,
-  duration,
-  year
-})
-
-  .then(async (foundLyrics) => {
-    if (!foundLyrics) return;
-
-    await pool.query(
-      "UPDATE songs SET lyrics = $1 WHERE id = $2",
-      [foundLyrics, songId]
-    );
-  })
-  .catch(err =>
-    console.warn(
-      "Lyrics background fetch failed:",
-      err.message
-    )
-  );
-
-    await addNotification(
-  "SONG_UPLOADED",
-  `Uploaded: ${file.originalname}`
-);
-
-results.push({
-  filename: file.originalname,
-  success: true,
-  songId
-});
-
-    } catch (fileErr) {
-  console.error("FAILED FILE:", file.originalname, fileErr);
-
-  if (fileKey) {
-    try {
-      await b2.send(
-        new DeleteObjectCommand({
-          Bucket: B2_AUDIO_BUCKET_NAME,
-          Key: fileKey
-        })
-      );
-    } catch (cleanupErr) {
-      console.warn("Audio cleanup failed:", cleanupErr.message);
     }
+
+    res.json({
+      success: true,
+      results
+    });
   }
-
-  if (coverKey) {
-    try {
-      await b2.send(
-        new DeleteObjectCommand({
-          Bucket: B2_COVER_BUCKET_NAME,
-          Key: coverKey
-        })
-      );
-    } catch (cleanupErr) {
-      console.warn("Cover cleanup failed:", cleanupErr.message);
-    }
-  }
-
-  results.push({
-    filename: file.originalname,
-    success: false,
-    error: fileErr.message
-  });
-}
-}
-
-res.json({
-  success: true,
-  results
-});
-
-  } catch (err) {
-    console.error("UPLOAD SONG ERROR:", err);
-    res.status(500).json({ error: "Upload failed" });
-  }
-});
+);
 
 /* ---------------- DELETE SONG ---------------- */
 
@@ -663,6 +664,72 @@ const result = await pool.query(
     console.error("SMART SEARCH ERROR:", err);
     res.status(500).json({ error: "Search failed" });
   }
+});
+
+function requireUploadToken(req, res, next) {
+  const token = req.headers["x-upload-token"];
+
+  if (!token || token !== process.env.FOLDER_UPLOAD_TOKEN) {
+    return res.sendStatus(403);
+  }
+
+  next();
+}
+
+router.post("/internal/upload-start", requireUploadToken, async (req, res) => {
+  const { filename } = req.body;
+
+  await pool.query(
+    `
+    INSERT INTO upload_jobs (filename, status, updated_at)
+    VALUES ($1, 'uploading', NOW())
+    `,
+    [filename]
+  );
+
+  res.json({ success: true });
+});
+
+router.post("/internal/upload-complete", requireUploadToken, async (req, res) => {
+  const { filename } = req.body;
+
+  await pool.query(
+    `
+    UPDATE upload_jobs
+    SET status = 'complete', updated_at = NOW()
+    WHERE id = (
+      SELECT id
+      FROM upload_jobs
+      WHERE filename = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    )
+    `,
+    [filename]
+  );
+
+  res.json({ success: true });
+});
+
+router.post("/internal/upload-failed", requireUploadToken, async (req, res) => {
+  const { filename, error } = req.body;
+
+  await pool.query(
+    `
+    UPDATE upload_jobs
+    SET status = 'failed', error = $2, updated_at = NOW()
+    WHERE id = (
+      SELECT id
+      FROM upload_jobs
+      WHERE filename = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+    )
+    `,
+    [filename, error || "Upload failed"]
+  );
+
+  res.json({ success: true });
 });
 
 module.exports = router;

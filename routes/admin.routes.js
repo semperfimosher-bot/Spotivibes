@@ -405,4 +405,19 @@ router.get("/notifications", requireLogin, async (req, res) => {
   }
 });
 
+router.get("/upload-status", requireAdmin, async (req, res) => {
+  const result = await pool.query(
+    `
+    SELECT id, filename, status, error, created_at, updated_at
+    FROM upload_jobs
+    ORDER BY created_at DESC
+    LIMIT 100
+    `
+  );
+
+  res.json({
+    jobs: result.rows
+  });
+});
+
 module.exports = router;
