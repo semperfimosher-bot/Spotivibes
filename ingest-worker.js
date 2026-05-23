@@ -231,9 +231,8 @@ async function scanBucket() {
 
 console.log("B2 ingest worker running...");
 
-scanBucket();
+setTimeout(() => {
+  scanBucket();
 
-setInterval(
-  scanBucket,
-  20 * 1000
-);
+  setInterval(scanBucket, 60 * 1000);
+}, 15000);

@@ -3,3 +3,4 @@ node_modules
 *.db
 sessions.db
 spotivibes.db
+uploaded-files.json
