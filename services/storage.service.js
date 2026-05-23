@@ -19,15 +19,14 @@ function cleanEnv(value) {
 const B2_ENDPOINT = cleanEnv(process.env.B2_ENDPOINT);
 const B2_KEY_ID = cleanEnv(process.env.B2_KEY_ID);
 const B2_APP_KEY = cleanEnv(process.env.B2_APP_KEY);
-const B2_BUCKET_NAME = cleanEnv(process.env.B2_BUCKET_NAME);
 const B2_AUDIO_BUCKET_NAME = cleanEnv(
-  process.env.B2_AUDIO_BUCKET_NAME || process.env.B2_BUCKET_NAME
-);
-
+  process.env.B2_AUDIO_BUCKET_NAME || process.env.B2_BUCKET_NAME);
 const B2_COVER_BUCKET_NAME = cleanEnv(
-  process.env.B2_COVER_BUCKET_NAME || process.env.B2_BUCKET_NAME
-);
+  process.env.B2_COVER_BUCKET_NAME || process.env.B2_BUCKET_NAME);
+const B2_INGEST_BUCKET_NAME = cleanEnv(
+  process.env.B2_INGEST_BUCKET_NAME);
 const B2_REGION = cleanEnv(process.env.B2_REGION);
+
 
 const b2 = new S3Client({
   region: B2_REGION,
@@ -72,9 +71,11 @@ module.exports = {
   getPublicCoverUrl,
   B2_AUDIO_BUCKET_NAME,
   B2_COVER_BUCKET_NAME,
+  B2_INGEST_BUCKET_NAME,
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
+  ListObjectsV2Command,
   ListObjectVersionsCommand
 };

@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "sh -c \"node server.js & node ingest-worker.js\""
     "dev": "nodemon server.js",
     "test": "jest"
   },
