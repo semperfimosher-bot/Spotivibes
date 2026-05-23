@@ -69,17 +69,17 @@ async function uploadToAPI(filePath) {
 }
 
 async function processFile(objectKey) {
-
   const filename = path.basename(objectKey);
+  const localPath = path.join(TEMP_DIR, filename);
 
   console.log("Processing:", filename);
 
-  const localPath = path.join(
-    TEMP_DIR,
-    filename
-  );
-
   try {
+    await axios.post(
+      `${API_BASE}/internal/upload-start`,
+      { filename },
+      { headers: { "x-upload-token": TOKEN } }
+    );
 
     const object = await b2.send(
       new GetObjectCommand({
@@ -88,22 +88,14 @@ async function processFile(objectKey) {
       })
     );
 
-    await streamToFile(
-      object.Body,
-      localPath
-    );
+    await streamToFile(object.Body, localPath);
 
     const result = await uploadToAPI(localPath);
 
-    const failed =
-      result?.results?.find(
-        r => r.success === false
-      );
+    const failed = result?.results?.find(r => r.success === false);
 
     if (failed) {
-      throw new Error(
-        failed.error || "Upload failed"
-      );
+      throw new Error(failed.error || "Upload failed");
     }
 
     await b2.send(
@@ -113,22 +105,34 @@ async function processFile(objectKey) {
       })
     );
 
+    await axios.post(
+      `${API_BASE}/internal/upload-complete`,
+      { filename },
+      { headers: { "x-upload-token": TOKEN } }
+    );
+
     console.log("Imported:", filename);
 
   } catch (err) {
-
     console.error(
       "FAILED:",
       filename,
       err.response?.data || err.message
     );
 
-  } finally {
+    await axios.post(
+      `${API_BASE}/internal/upload-failed`,
+      {
+        filename,
+        error: err.response?.data?.error || err.message
+      },
+      { headers: { "x-upload-token": TOKEN } }
+    ).catch(() => {});
 
+  } finally {
     if (fs.existsSync(localPath)) {
       fs.unlinkSync(localPath);
     }
-
   }
 }
 
