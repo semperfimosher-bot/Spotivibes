@@ -211,4 +211,38 @@ document.getElementById("deleteAllContentBtn")
     location.reload();
   });
 
+  async function loadUploadStatus() {
+  const summary = document.getElementById("uploadStatusSummary");
+  const list = document.getElementById("uploadStatusList");
+
+  if (!summary || !list) return;
+
+  try {
+    const data = await apiFetch("/api/upload-status");
+    const jobs = data.jobs || [];
+
+    const uploading = jobs.filter(j => j.status === "uploading").length;
+    const complete = jobs.filter(j => j.status === "complete").length;
+    const failed = jobs.filter(j => j.status === "failed").length;
+
+    summary.innerHTML = `
+      Uploading: ${uploading} · Complete: ${complete} · Failed: ${failed}
+    `;
+
+    list.innerHTML = jobs.map(job => `
+      <div class="upload-job ${job.status}">
+        <strong>${job.filename}</strong>
+        <span>${job.status}</span>
+        ${job.error ? `<small>${job.error}</small>` : ""}
+      </div>
+    `).join("");
+
+  } catch (err) {
+    console.warn("Upload status failed:", err.message);
+  }
+}
+
+setInterval(loadUploadStatus, 2000);
+loadUploadStatus();
+
 loadSongs();

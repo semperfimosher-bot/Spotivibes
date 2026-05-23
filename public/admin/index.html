@@ -65,6 +65,30 @@
       background: #001aff;
       cursor: pointer;
     }
+
+    .upload-job {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.upload-job.uploading span {
+  color: #facc15;
+}
+
+.upload-job.complete span {
+  color: #22c55e;
+}
+
+.upload-job.failed span {
+  color: #ef4444;
+}
+
+.upload-job small {
+  display: block;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
   </style>
 </head>
 
@@ -95,6 +119,12 @@
       <button id="uploadSongsBtn">Upload</button>
 
       <p id="status"></p>
+
+      <section class="admin-card">
+        <h2>Live Folder Uploads</h2>
+        <div id="uploadStatusSummary">No uploads yet.</div>
+        <div id="uploadStatusList"></div>
+      </section>
     </div>
 
     <div id="settings" class="hidden">
