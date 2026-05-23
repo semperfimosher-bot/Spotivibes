@@ -144,12 +144,37 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
+let server;
+
+process.on("beforeExit", (code) => {
+  console.log("PROCESS BEFORE EXIT:", code);
+});
+
+process.on("exit", (code) => {
+  console.log("PROCESS EXITED:", code);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED REJECTION:", err);
+});
+
 if (require.main === module) {
   initDB()
     .then(() => {
-      app.listen(PORT, () => {
+      server = app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);
       });
+
+      server.on("error", (err) => {
+        console.error("SERVER ERROR:", err);
+      });
+
+      // Keeps local dev process alive if something accidentally releases handles
+      setInterval(() => {}, 1000 * 60);
     })
     .catch((err) => {
       console.error("Database init failed:", err);
