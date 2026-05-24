@@ -60,7 +60,7 @@ async function checkArtistCompleteness(artist) {
   await new Promise(resolve => setTimeout(resolve, 1200));
 
   const recordings = await mbFetch(
-    `${MB_BASE}/recording?query=${encodeURIComponent(`arid:${mbArtist.id}`)}&fmt=json&limit=100`
+    `${MB_BASE}/recording?query=${encodeURIComponent(`arid:${mbArtist.id}`)}&fmt=json&limit=150`
   );
 
   const suggested = [];
@@ -76,7 +76,7 @@ async function checkArtistCompleteness(artist) {
       suggested.push(title);
     }
 
-    if (suggested.length >= 50) break;
+    if (suggested.length >= 100) break;
   }
 
   if (!suggested.length) return;
