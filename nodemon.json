@@ -1,0 +1,7 @@
+{
+  "ignore": [
+    "uploaded-files.json",
+    "public/**",
+    "node_modules/**"
+  ]
+}

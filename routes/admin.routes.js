@@ -285,6 +285,7 @@ await pool.query("BEGIN");
 await pool.query("DELETE FROM playlist_songs");
 await pool.query("DELETE FROM user_library");
 await pool.query("DELETE FROM listening_history");
+await pool.query("DELETE FROM upload_jobs");
 await pool.query("DELETE FROM playlists");
 await pool.query("DELETE FROM notifications");
 await pool.query("DELETE FROM settings");

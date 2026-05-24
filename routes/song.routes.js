@@ -1,8 +1,11 @@
 const express = require("express");
 const multer = require("multer");
 const mm = require("music-metadata");
-
 const pool = require("../database");
+
+const {
+  checkArtistCompleteness
+} = require("../services/artist-completeness.service");
 
 const {
   requireLogin,
@@ -252,7 +255,7 @@ router.post(
     return requireAdmin(req, res, next);
   },
 
-  upload.array("songs", 20),
+  upload.array("songs", 5),
 
   async (req, res) => {
     const results = [];
@@ -384,28 +387,33 @@ router.post(
           ]
         );
 
-        const songId = inserted.rows[0].id;
+       const songId = inserted.rows[0].id;
 
-        if (!genre || genre.toLowerCase() === "unknown") {
-          fetchGenreFromITunes({ title, artist })
-            .then(async (foundGenre) => {
-              if (!foundGenre) return;
+console.log("UPLOAD INSERTED SONG:", songId, title, artist);
 
-              await pool.query(
-                "UPDATE songs SET genre = $1 WHERE id = $2",
-                [foundGenre, songId]
-              );
-            })
-            .catch(err => {
-              console.warn("Genre background fetch failed:", err.message);
-            });
-        }
+checkArtistCompleteness(artist).catch(async err => {
+  console.warn(
+    "COMPLETENESS CHECK FAILED:",
+    err.stack || err.message
+  );
 
-        results.push({
-          filename: file.originalname,
-          success: true,
-          songId
-        });
+  await pool.query(
+    `
+    INSERT INTO notifications (type, message, time)
+    VALUES ($1, $2, NOW())
+    `,
+    [
+      "ARTIST_MISSING_SONGS",
+      `DEBUG completeness failed for ${artist}: ${err.message}`
+    ]
+  );
+});
+
+results.push({
+  filename: file.originalname,
+  success: true,
+  songId
+});
 
       } catch (fileErr) {
         console.error("FAILED FILE:", file.originalname, fileErr);

@@ -3,14 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
-  
-  
- "scripts": {
-  "start": "sh -c \"node server.js & node ingest-worker.js\"",
-  "start:local": "node server.js",
-  "watch": "node watch-upload.js",
-  "dev": "nodemon --exec \"npm run start:local\"",
-  "test": "jest"
+  "scripts": {
+    "start": "sh -c \"node server.js & node ingest-worker.js\"",
+    "start:local": "node server.js",
+    "watch": "node watch-upload.js",
+    "dev": "nodemon --exec \"npm run start:local\"",
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -33,6 +31,7 @@
     "helmet": "^8.1.0",
     "multer": "^2.1.1",
     "music-metadata": "^11.12.3",
+    "node-fetch": "^2.7.0",
     "pg": "^8.20.0",
     "zod": "^4.4.1"
   },

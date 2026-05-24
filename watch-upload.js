@@ -129,10 +129,9 @@ async function uploadFileWithRetry(filePath) {
     } catch (err) {
       const filename = path.basename(filePath);
 
-      console.error(
-        `Attempt ${attempt}/${maxAttempts} failed:`,
-        filename,
-        err.response?.data || err.message
+      console.warn(
+      `Retrying ${filename} (${attempt}/${maxAttempts})...`,
+       err.message
       );
 
       if (attempt === maxAttempts) {
@@ -144,7 +143,11 @@ async function uploadFileWithRetry(filePath) {
         return;
       }
 
-      await sleep(5000);
+      const isConnectionReset =
+       String(err.message || "").includes("ECONNRESET") ||
+       String(err.response?.data || "").includes("ECONNRESET");
+
+      await sleep(isConnectionReset ? 30000 : 5000);
     }
   }
 }

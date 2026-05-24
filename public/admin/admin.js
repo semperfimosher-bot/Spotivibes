@@ -1,4 +1,3 @@
-
 function show(page) {
   document.querySelectorAll(".main > div").forEach(d => d.classList.add("hidden"));
   document.getElementById(page).classList.remove("hidden");
@@ -176,12 +175,16 @@ async function loadNotifications() {
     return;
   }
 
-  document.getElementById("notifList").innerHTML =
-    data.notifications.map(n => `
-      <div class="row">
-        [${n.time}] ${n.type}: ${n.message}
+ document.getElementById("notifList").innerHTML =
+  data.notifications.map(n => `
+    <div class="row">
+      <div class="notification-message">
+        [${n.time}] ${n.type}:
+        
+${n.message}
       </div>
-    `).join("");
+    </div>
+  `).join("");
 }
 
 document.getElementById("deleteAllContentBtn")
