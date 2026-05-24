@@ -34,17 +34,6 @@ async function mbFetch(url) {
 
 async function checkArtistCompleteness(artist) {
 
-  await pool.query(
-  `
-  INSERT INTO notifications (type, message, time)
-  VALUES ($1, $2, NOW())
-  `,
-  [
-    "ARTIST_MISSING_SONGS",
-    `DEBUG checkArtistCompleteness started for ${artist}`
-  ]
-);
-
   if (!artist || artist.toLowerCase() === "unknown artist") return;
 
   const ownedResult = await pool.query(
@@ -65,17 +54,6 @@ async function checkArtistCompleteness(artist) {
   );
 
   const mbArtist = artistSearch.artists?.[0];
-
-  await pool.query(
-  `
-  INSERT INTO notifications (type, message, time)
-  VALUES ($1, $2, NOW())
-  `,
-  [
-    "ARTIST_MISSING_SONGS",
-    `DEBUG MusicBrainz result for ${artist}: ${mbArtist?.name || "NONE"}`
-  ]
-);
 
   if (!mbArtist?.id) return;
 

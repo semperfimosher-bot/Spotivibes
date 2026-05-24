@@ -100,6 +100,7 @@ await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS genre TEXT`);
   await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS query TEXT`);
   await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS is_generated BOOLEAN DEFAULT false`);
   await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_pic_url TEXT`);
 
  await pool.query(`
   CREATE INDEX IF NOT EXISTS idx_songs_id_desc

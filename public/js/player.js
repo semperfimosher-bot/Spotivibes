@@ -13,16 +13,22 @@ let preloadAudio2 = new Audio();
 preloadAudio1.preload = "auto";
 preloadAudio2.preload = "auto";
 
+const AUDIO_URL_CACHE_MS = 45 * 60 * 1000;
+
 async function getCachedAudioUrl(songId) {
-  
-  if (playerAudioUrlCache.has(songId)) {
-  return playerAudioUrlCache.get(songId);
-}
+  const cached = playerAudioUrlCache.get(songId);
+
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.url;
+  }
 
   const url = await getAudioUrl(songId);
 
   if (url) {
-    playerAudioUrlCache.set(songId, url);
+    playerAudioUrlCache.set(songId, {
+      url,
+      expiresAt: Date.now() + AUDIO_URL_CACHE_MS
+    });
   }
 
   return url;
