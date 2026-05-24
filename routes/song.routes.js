@@ -303,9 +303,9 @@ router.post(
 
         genre = genre?.trim() || null;
 
-        if (!genre) {
-          genre = "unknown";
-        }
+        if (!genre || genre.toLowerCase() === "unknown") {
+  genre = await fetchGenreFromITunes({ title, artist }) || "unknown";
+}
 
         const year =
           metadata.common?.year
