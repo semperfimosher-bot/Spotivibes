@@ -1,8 +1,10 @@
-const fetch = require("node-fetch");
 const pool = require("../database");
 
-const MB_BASE = "https://musicbrainz.org/ws/2";
-const USER_AGENT = "Spotivibes/1.0.0 (https://spotivibes.com)";
+const spotify = require("./spotify.service");
+const musicBrainz = require("./musicbrainz.service");
+
+const MAX_SUGGESTIONS = Number(process.env.MAX_ARTIST_SUGGESTIONS || 50);
+const SPOTIFY_MARKET = process.env.SPOTIFY_MARKET || "US";
 
 function normalizeTitle(title = "") {
   return title
@@ -14,28 +16,59 @@ function normalizeTitle(title = "") {
     .trim();
 }
 
-async function mbFetch(url) {
-  console.log("FETCHING MUSICBRAINZ:", url);
+function isBadSuggestionTitle(title = "") {
+  const cleaned = title.toLowerCase();
 
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": USER_AGENT,
-      Accept: "application/json"
-    }
-  });
-
-  if (!res.ok) {
-    console.log("MUSICBRAINZ STATUS:", res.status);
-    throw new Error(`MusicBrainz error ${res.status}`);
-  }
-
-  return res.json();
+  return [
+    "instrumental",
+    "karaoke",
+    "sped up",
+    "slowed",
+    "nightcore",
+    "remix",
+    "live",
+    "commentary",
+    "interlude",
+    "skit"
+  ].some(word => cleaned.includes(word));
 }
 
-async function checkArtistCompleteness(artist) {
+function addSuggestion(map, suggestion) {
+  if (!suggestion?.title) return;
+  if (isBadSuggestionTitle(suggestion.title)) return;
 
-  if (!artist || artist.toLowerCase() === "unknown artist") return;
+  const normalized = normalizeTitle(suggestion.title);
 
+  if (!normalized) return;
+
+  const existing = map.get(normalized);
+
+  if (!existing) {
+    map.set(normalized, {
+      title: suggestion.title,
+      source: suggestion.source || "Unknown",
+      popularity: suggestion.popularity || 0,
+      album: suggestion.album || null,
+      spotifyUrl: suggestion.spotifyUrl || null
+    });
+    return;
+  }
+
+  // Keep the better Spotify-ranked version if duplicate titles appear.
+  if ((suggestion.popularity || 0) > (existing.popularity || 0)) {
+    map.set(normalized, {
+      ...existing,
+      ...suggestion,
+      source: existing.source === suggestion.source
+        ? existing.source
+        : `${existing.source} + ${suggestion.source}`
+    });
+  } else if (!existing.source.includes(suggestion.source || "")) {
+    existing.source = `${existing.source} + ${suggestion.source}`;
+  }
+}
+
+async function getOwnedTitlesForArtist(artist) {
   const ownedResult = await pool.query(
     `
     SELECT title
@@ -45,39 +78,106 @@ async function checkArtistCompleteness(artist) {
     [artist]
   );
 
-  const ownedTitles = new Set(
+  return new Set(
     ownedResult.rows.map(r => normalizeTitle(r.title))
   );
+}
 
-  const artistSearch = await mbFetch(
-    `${MB_BASE}/artist?query=${encodeURIComponent(`artist:"${artist}"`)}&fmt=json&limit=1`
-  );
+async function getSpotifySuggestions(artist) {
+  console.log("Spotify configured?", spotify.spotifyIsConfigured());
 
-  const mbArtist = artistSearch.artists?.[0];
+  if (!spotify.spotifyIsConfigured()) {
+    console.warn("Spotify is not configured. Skipping Spotify suggestions.");
+    return [];
+  }
 
-  if (!mbArtist?.id) return;
+  console.log("Searching Spotify artist:", artist);
 
-  await new Promise(resolve => setTimeout(resolve, 1200));
+  const foundArtist = await spotify.searchArtist(artist);
 
-  const recordings = await mbFetch(
-    `${MB_BASE}/recording?query=${encodeURIComponent(`arid:${mbArtist.id}`)}&fmt=json&limit=150`
-  );
+console.log("Spotify found artist:", foundArtist?.name, foundArtist?.id);
 
-  const suggested = [];
+if (!foundArtist?.id) return [];
 
-  for (const rec of recordings.recordings || []) {
-    const title = rec.title;
-    const normalized = normalizeTitle(title);
+  const suggestions = [];
 
-    if (!title || !normalized) continue;
-    if (ownedTitles.has(normalized)) continue;
+  const topTracks = await spotify.getArtistTopTracks(foundArtist.id, SPOTIFY_MARKET);
 
-    if (!suggested.some(s => normalizeTitle(s) === normalized)) {
-      suggested.push(title);
+  for (const track of topTracks) {
+    suggestions.push(spotify.spotifyTrackToSuggestion(track, "Spotify Top Tracks"));
+  }
+
+  const albums = await spotify.getArtistAlbums(foundArtist.id, SPOTIFY_MARKET, 8);
+
+  for (const album of albums) {
+    const tracks = await spotify.getAlbumTracks(album.id, SPOTIFY_MARKET);
+
+    for (const track of tracks) {
+      suggestions.push({
+        title: track.name,
+        source: "Spotify Albums",
+        popularity: 0,
+        album: album.name,
+        spotifyUrl: track.external_urls?.spotify || null
+      });
+    }
+  }
+
+  return suggestions;
+}
+
+async function getMusicBrainzSuggestions(artist) {
+  const foundArtist = await musicBrainz.searchArtist(artist);
+
+  if (!foundArtist?.id) return [];
+
+  const recordings = await musicBrainz.getArtistRecordings(foundArtist.id, 150);
+
+  return recordings.map(recording => ({
+    title: recording.title,
+    source: "MusicBrainz",
+    popularity: 0,
+    album: null,
+    spotifyUrl: null
+  }));
+}
+
+async function checkArtistCompleteness(artist) {
+  if (!artist || artist.toLowerCase() === "unknown artist") return;
+
+  const ownedTitles = await getOwnedTitlesForArtist(artist);
+  const suggestionMap = new Map();
+
+  const results = await Promise.allSettled([
+    getSpotifySuggestions(artist),
+    getMusicBrainzSuggestions(artist)
+  ]);
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.warn("Suggestion provider failed:", result.reason?.message || result.reason);
+      continue;
     }
 
-    if (suggested.length >= 100) break;
+    for (const suggestion of result.value) {
+      const normalized = normalizeTitle(suggestion.title);
+
+      if (ownedTitles.has(normalized)) continue;
+
+      addSuggestion(suggestionMap, suggestion);
+    }
   }
+
+  const suggested = [...suggestionMap.values()]
+    .sort((a, b) => {
+      // Spotify popular songs first, then alphabetically.
+      if ((b.popularity || 0) !== (a.popularity || 0)) {
+        return (b.popularity || 0) - (a.popularity || 0);
+      }
+
+      return a.title.localeCompare(b.title);
+    })
+    .slice(0, MAX_SUGGESTIONS);
 
   if (!suggested.length) return;
 
@@ -90,6 +190,15 @@ async function checkArtistCompleteness(artist) {
     [`%${artist}%`]
   );
 
+  const lines = suggested.map(song => {
+    const extras = [
+      song.album ? `album: ${song.album}` : null,
+      song.source ? `source: ${song.source}` : null
+    ].filter(Boolean);
+
+    return `• ${song.title}${extras.length ? ` (${extras.join(", ")})` : ""}`;
+  });
+
   await pool.query(
     `
     INSERT INTO notifications (type, message, time)
@@ -97,13 +206,14 @@ async function checkArtistCompleteness(artist) {
     `,
     [
       "ARTIST_MISSING_SONGS",
-      `You uploaded music by ${artist}.\n\nNew suggested songs:\n• ${suggested.join("\n• ")}`
+      `You uploaded music by ${artist}.\n\nSuggested songs to consider uploading:\n${lines.join("\n")}`
     ]
   );
 
-  console.log("Notification inserted:", artist);
+  console.log("Hybrid recommendation notification inserted:", artist);
 }
 
 module.exports = {
-  checkArtistCompleteness
+  checkArtistCompleteness,
+  normalizeTitle
 };
