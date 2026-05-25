@@ -1677,4 +1677,16 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
   font-size: 24px;
   cursor: pointer;
 }
+
+#miniControls button {
+  min-width: 32px;
+  min-height: 32px;
+  font-size: 18px;
+}
+
+#miniPlayBtn {
+  min-width: 36px;
+  min-height: 36px;
+  font-size: 21px;
+}
 }
