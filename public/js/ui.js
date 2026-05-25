@@ -53,9 +53,27 @@ if (searchBar) {
   debounce(handleSearch, 120)
 );
 
-  searchBar?.addEventListener("keydown", (e) => {
-    // keep your existing desktop keydown code here
-  });
+ searchBar?.addEventListener("keydown", async (e) => {
+
+  if (e.key === "Enter") {
+    e.preventDefault();
+
+    const query = searchBar.value.trim();
+
+    if (!query) return;
+
+    closeSearchDropdown();
+
+    apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`)
+      .then(renderSmartSearchResults)
+      .catch(err => {
+        console.warn("Search failed:", err.message);
+      });
+
+    return;
+  }
+
+});
 }
 
 mobileSearchBar?.addEventListener(
@@ -371,32 +389,28 @@ function updateDropdownHighlight() {
 // SEARCH HANDLER
 // ==========================
 async function handleSearch(e) {
-  closeSearchDropdown();
-
   const query = e.target.value.trim();
 
   if (!query) {
-    showView("home");
-    renderHome();
+    closeSearchDropdown();
     return;
   }
 
   saveRecentSearch(query);
 
- const localSongs = rankSongs(query, state.songs || [])
-  .filter(s => s.score > 0)
-  .slice(0, 25);
+  const localSongs = rankSongs(query, state.songs || [])
+    .filter(s => s.score > 0)
+    .slice(0, 8);
 
-renderSmartSearchResults({
-  playlists: [],
-  songs: localSongs
-});
+  renderSearchDropdown(localSongs);
 
-apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`)
-  .then(renderSmartSearchResults)
-  .catch(err => {
-    console.warn("Search failed:", err.message);
-  });
+  apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`)
+    .then(res => {
+      renderSearchDropdown(res.songs || []);
+    })
+    .catch(err => {
+      console.warn("Search suggestions failed:", err.message);
+    });
 }
 
 // ==========================

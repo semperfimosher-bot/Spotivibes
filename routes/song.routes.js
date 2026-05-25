@@ -552,7 +552,7 @@ router.get("/smart-search", requireLogin, async (req, res) => {
   return res.status(400).json({ error: "Search query too long" });
 }
 
-    if (!q || q.length < 2) {
+    if (!q || q.length < 1) {
       return res.json({
         playlists: [],
         songs: []
