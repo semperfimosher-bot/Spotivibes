@@ -1,3 +1,27 @@
+async function verifyAdminAccess() {
+  try {
+    const res = await fetch("/api/me", {
+      credentials: "include"
+    });
+
+    const data = await res.json();
+
+    if (!data.loggedIn || data.user?.role !== "admin") {
+      document.getElementById("adminContent").classList.add("hidden");
+      document.getElementById("adminBlocked").classList.remove("hidden");
+      return false;
+    }
+
+    document.getElementById("adminContent").classList.remove("hidden");
+    document.getElementById("adminBlocked").classList.add("hidden");
+    return true;
+  } catch {
+    document.getElementById("adminContent").classList.add("hidden");
+    document.getElementById("adminBlocked").classList.remove("hidden");
+    return false;
+  }
+}
+
 function show(page) {
   document.querySelectorAll(".main > div").forEach(d => d.classList.add("hidden"));
   document.getElementById(page).classList.remove("hidden");
@@ -293,7 +317,14 @@ document.getElementById("deleteAllContentBtn")
   }
 }
 
-setInterval(loadUploadStatus, 2000);
-loadUploadStatus();
+(async () => {
+  const allowed = await verifyAdminAccess();
 
-loadSongs();
+  if (!allowed) return;
+
+  setInterval(loadUploadStatus, 2000);
+
+  loadUploadStatus();
+  loadSongs();
+  loadNotifications();
+})();

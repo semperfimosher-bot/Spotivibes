@@ -134,12 +134,33 @@
     max-height: 300px;
     overflow-y: auto;
   }
+
+ #adminBlocked {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #000;
+}
+
+.adminLockoutImage {
+  width: 100%;
+  height: 100%;
+  background-image: url("/assets/lockout.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 </style>
 </head>
 
 <body>
 
-<div class="app">
+<div id="adminBlocked" class="hidden">
+  <div class="adminLockoutImage"></div>
+</div>
+
+<div id="adminContent" class="app">
 
   <div class="sidebar">
     <h2>Admin</h2>
