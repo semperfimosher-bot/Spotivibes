@@ -334,9 +334,15 @@ document.getElementById("deleteAllContentBtn")
 
   if (!allowed) return;
 
-  setInterval(loadUploadStatus, 2000);
+  setInterval(async () => {
+  const allowed = await verifyAdminAccess();
+
+  if (!allowed) return;
 
   loadUploadStatus();
-  loadSongs();
-  loadNotifications();
+}, 2000);
+
+loadUploadStatus();
+loadSongs();
+loadNotifications();
 })();
