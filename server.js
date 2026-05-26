@@ -8,6 +8,7 @@ const PgSession = require("connect-pg-simple")(session);
 const rateLimit = require("express-rate-limit");
 const pool = require("./database");
 const initDB = require("./db/initDB");
+const { requireAdmin } = require("./middleware/auth.middleware");
 const configRoutes = require("./routes/config.routes");
 const authRoutes = require("./routes/auth.routes");
 const libraryRoutes = require("./routes/library.routes");
@@ -86,6 +87,25 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/api/suggestion-files/:filename", requireAdmin, (req, res) => {
+  const filename = path.basename(req.params.filename);
+
+  const filePath = path.join(
+    __dirname,
+    "public",
+    "admin",
+    "suggestion-files",
+    filename
+  );
+
+  res.sendFile(filePath, err => {
+    if (err) {
+      console.error("Suggestion file not found:", filename);
+      res.status(404).send("Suggestion file not found");
+    }
+  });
+});
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));

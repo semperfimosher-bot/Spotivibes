@@ -181,7 +181,7 @@ async function loadNotifications() {
       <div class="notification-message">
         
 ${String(n.message).replace(
-  /(\/admin\/suggestion-files\/[^\s]+)/g,
+  /(\/api\/suggestion-files\/[^\s]+)/g,
   '<a href="$1" target="_blank">Open suggestion list</a>'
 )}
 

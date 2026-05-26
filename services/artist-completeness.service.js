@@ -183,7 +183,7 @@ async function createSuggestionFile(artist, suggested) {
 
   await fs.writeFile(filePath, fileText, "utf8");
 
-  return `/admin/suggestion-files/${fileName}`;
+  return `/api/suggestion-files/${fileName}`;
 }
 
 async function checkArtistCompleteness(artist) {
