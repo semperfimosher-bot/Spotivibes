@@ -1,5 +1,3 @@
-const fs = require("fs/promises");
-const path = require("path");
 const pool = require("../database");
 
 const deezer = require("./deezer.service");
@@ -112,7 +110,7 @@ async function getDeezerSuggestions(artist) {
   }
 
   // Albums are useful for filling gaps, but keep this smaller so notifications stay clean.
-  const albums = await deezer.getArtistAlbums(foundArtist.id, 25);
+  const albums = await deezer.getArtistAlbums(foundArtist.id, 5);
 
   for (const album of albums) {
     try {
@@ -153,37 +151,6 @@ async function getMusicBrainzSuggestions(artist) {
     previewUrl: null,
     providerId: null
   }));
-}
-
-async function createSuggestionFile(artist, suggested) {
-  const safeArtist = artist
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  const fileName = `${safeArtist}-${Date.now()}.txt`;
-
-  const folderPath = path.join(
-    __dirname,
-    "..",
-    "public",
-    "admin",
-    "suggestion-files"
-  );
-
-  await fs.mkdir(folderPath, { recursive: true });
-
-  const filePath = path.join(folderPath, fileName);
-
-  const fileText = [
-    `Suggested songs for ${artist}`,
-    "",
-    ...suggested.map(song => song.title)
-  ].join("\n");
-
-  await fs.writeFile(filePath, fileText, "utf8");
-
-  return `/api/suggestion-files/${fileName}`;
 }
 
 async function checkArtistCompleteness(artist) {
@@ -234,7 +201,7 @@ async function checkArtistCompleteness(artist) {
     [`%${artist}%`]
   );
 
-  const suggestionFileUrl = await createSuggestionFile(artist, suggested);
+  const lines = suggested.map(song => `• ${song.title}`);
 
 await pool.query(
   `
@@ -243,7 +210,7 @@ await pool.query(
   `,
   [
     "ARTIST_MISSING_SONGS",
-    `You uploaded music by ${artist}.\n\nOpen suggestion list:\n${suggestionFileUrl}`
+    `You uploaded music by ${artist}.\n\nSuggested songs to consider uploading:\n${lines.join("\n")}`
   ]
 );
 

@@ -4,97 +4,137 @@
   <title>Admin Panel</title>
 
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0d0d0d;
-      color: white;
-    }
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0d0d0d;
+    color: white;
+  }
 
-    .app {
-      display: flex;
-      height: 100vh;
-    }
+  .app {
+    display: flex;
+    height: 100vh;
+  }
 
-    .sidebar {
-      width: 220px;
-      padding: 20px;
-      background: #000;
-    }
+  .sidebar {
+    width: 220px;
+    padding: 20px;
+    background: #000;
+  }
 
-    .sidebar h2 { color: #0000ff; }
+  .sidebar h2 {
+    color: #0000ff;
+  }
 
-    .sidebar p {
-      padding: 10px;
-      cursor: pointer;
-    }
+  .sidebar p {
+    padding: 10px;
+    cursor: pointer;
+  }
 
-    .sidebar p:hover { color: #0d00ff; }
+  .sidebar p:hover {
+    color: #0d00ff;
+  }
 
-    .main {
-      flex: 1;
-      padding: 30px;
-      overflow-y: auto;
-    }
+  .main {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+  }
 
-    .hidden {
-      display: none !important;
-    }
+  .hidden {
+    display: none !important;
+  }
 
-    .row {
-      background: #1a1a1a;
-      padding: 12px;
-      margin: 8px 0;
-      border-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+  .row {
+    background: #1a1a1a;
+    padding: 8px 12px;
+    margin: 6px 0;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
 
-    .deleteBtn {
-      color: red;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 18px;
-    }
+  .deleteBtn {
+    color: red;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 18px;
+  }
 
-    button {
-      padding: 10px;
-      border: none;
-      border-radius: 6px;
-      background: #001aff;
-      cursor: pointer;
-    }
+  button {
+    padding: 8px 10px;
+    border: none;
+    border-radius: 6px;
+    background: #001aff;
+    color: white;
+    cursor: pointer;
+  }
 
-    .upload-job {
-  padding: 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
+  .upload-job {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
 
-.upload-job.uploading span {
-  color: #facc15;
-}
+  .upload-job.uploading span {
+    color: #facc15;
+  }
 
-.upload-job.complete span {
-  color: #22c55e;
-}
+  .upload-job.complete span {
+    color: #22c55e;
+  }
 
-.upload-job.failed span {
-  color: #ef4444;
-}
+  .upload-job.failed span {
+    color: #ef4444;
+  }
 
-.upload-job small {
-  display: block;
-  color: #ef4444;
-  margin-top: 4px;
-}
+  .upload-job small {
+    display: block;
+    color: #ef4444;
+    margin-top: 4px;
+  }
 
-.notification-message {
-  white-space: pre-wrap;
-  line-height: 1.5;
-}
+  .notification-message {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.2;
+    flex-wrap: wrap;
+  }
 
-  </style>
+  .notifHeader {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .viewSuggestionsBtn {
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .suggestionsBox {
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px;
+    background: #111;
+    border-radius: 6px;
+    line-height: 1.4;
+    font-size: 13px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+</style>
 </head>
 
 <body>

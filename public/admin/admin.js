@@ -176,18 +176,63 @@ async function loadNotifications() {
   }
 
  document.getElementById("notifList").innerHTML =
-  data.notifications.map(n => `
-    <div class="row">
-      <div class="notification-message">
-        
-${String(n.message).replace(
-  /(\/(?:admin|api)\/suggestion-files\/[^\s<]+)/g,
-  '<a href="$1" target="_blank">Open suggestion list</a>'
-)}
+  data.notifications.map((n, index) => {
+    const message = String(n.message || "");
 
+    const [header, ...rest] =
+      message.split("Suggested songs to consider uploading:");
+
+    const suggestions =
+      rest.join("Suggested songs to consider uploading:").trim();
+
+    if (!suggestions) {
+      return `
+        <div class="row">
+          <div class="notification-message">
+            ${header.replace(/\n/g, "<br>")}
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="row">
+        <div class="notification-message">
+
+          <div class="notifHeader">
+      ${header.replace(/\n/g, "<br>")}
+          </div>
+
+          <button class="viewSuggestionsBtn"
+                  data-suggestion-id="${index}">
+            View suggestions
+          </button>
+
+          <div id="suggestions-${index}"
+               class="suggestionsBox hidden">
+            ${suggestions.replace(/\n/g, "<br>")}
+          </div>
+        </div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
+
+document.querySelectorAll(".viewSuggestionsBtn")
+  .forEach(btn => {
+    btn.addEventListener("click", () => {
+      const box =
+        document.getElementById(
+          `suggestions-${btn.dataset.suggestionId}`
+        );
+
+      box.classList.toggle("hidden");
+
+      btn.innerText =
+        box.classList.contains("hidden")
+          ? "View suggestions"
+          : "Hide suggestions";
+    });
+  });
 }
 
 document.getElementById("deleteAllContentBtn")

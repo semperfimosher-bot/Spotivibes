@@ -88,7 +88,7 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/suggestion-files/:filename", requireAdmin, (req, res) => {
+app.get("/api/suggestion-files/:filename", (req, res) => {
   const filename = path.basename(req.params.filename);
 
   const filePath = path.join(
