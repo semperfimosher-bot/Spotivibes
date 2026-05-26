@@ -1,36 +1,35 @@
 async function verifyAdminAccess() {
   try {
-    const res = await fetch("/api/me", {
+    const res = await fetch("/api/admin/check", {
       credentials: "include",
       cache: "no-store"
     });
 
-    const data = await res.json();
+    if (!res.ok) {
+      document.getElementById("adminContent")
+        .classList.add("hidden");
 
-    console.log("ADMIN CHECK:", data);
+      document.getElementById("adminBlocked")
+        .classList.remove("hidden");
 
-    const role = String(
-      data.user?.role || data.user?.is_admin || data.user?.isAdmin || ""
-    ).toLowerCase();
-
-    const isAdmin =
-      data.loggedIn === true &&
-      (role === "admin" || role === "true" || role === "1");
-
-    if (!isAdmin) {
-      document.getElementById("adminContent").classList.add("hidden");
-      document.getElementById("adminBlocked").classList.remove("hidden");
       return false;
     }
 
-    document.getElementById("adminContent").classList.remove("hidden");
-    document.getElementById("adminBlocked").classList.add("hidden");
-    return true;
-  } catch (err) {
-    console.error("Admin access check failed:", err);
+    document.getElementById("adminContent")
+      .classList.remove("hidden");
 
-    document.getElementById("adminContent").classList.add("hidden");
-    document.getElementById("adminBlocked").classList.remove("hidden");
+    document.getElementById("adminBlocked")
+      .classList.add("hidden");
+
+    return true;
+
+  } catch {
+    document.getElementById("adminContent")
+      .classList.add("hidden");
+
+    document.getElementById("adminBlocked")
+      .classList.remove("hidden");
+
     return false;
   }
 }
