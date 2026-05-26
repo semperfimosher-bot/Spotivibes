@@ -1,34 +1,19 @@
 async function verifyAdminAccess() {
   try {
-    const res = await fetch("/api/admin/check", {
+    await loadConfig();
+
+    await apiFetch("/api/admin/check", {
       credentials: "include",
       cache: "no-store"
     });
 
-    if (!res.ok) {
-      document.getElementById("adminContent")
-        .classList.add("hidden");
-
-      document.getElementById("adminBlocked")
-        .classList.remove("hidden");
-
-      return false;
-    }
-
-    document.getElementById("adminContent")
-      .classList.remove("hidden");
-
-    document.getElementById("adminBlocked")
-      .classList.add("hidden");
+    document.getElementById("adminContent").classList.remove("hidden");
+    document.getElementById("adminBlocked").classList.add("hidden");
 
     return true;
-
   } catch {
-    document.getElementById("adminContent")
-      .classList.add("hidden");
-
-    document.getElementById("adminBlocked")
-      .classList.remove("hidden");
+    document.getElementById("adminContent").classList.add("hidden");
+    document.getElementById("adminBlocked").classList.remove("hidden");
 
     return false;
   }
@@ -331,18 +316,16 @@ document.getElementById("deleteAllContentBtn")
 
 (async () => {
   const allowed = await verifyAdminAccess();
-
   if (!allowed) return;
 
   setInterval(async () => {
-  const allowed = await verifyAdminAccess();
+    const stillAllowed = await verifyAdminAccess();
+    if (!stillAllowed) return;
 
-  if (!allowed) return;
+    loadUploadStatus();
+  }, 2000);
 
   loadUploadStatus();
-}, 2000);
-
-loadUploadStatus();
-loadSongs();
-loadNotifications();
+  loadSongs();
+  loadNotifications();
 })();
