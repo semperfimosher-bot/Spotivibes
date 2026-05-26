@@ -1,12 +1,23 @@
 async function verifyAdminAccess() {
   try {
     const res = await fetch("/api/me", {
-      credentials: "include"
+      credentials: "include",
+      cache: "no-store"
     });
 
     const data = await res.json();
 
-    if (!data.loggedIn || data.user?.role !== "admin") {
+    console.log("ADMIN CHECK:", data);
+
+    const role = String(
+      data.user?.role || data.user?.is_admin || data.user?.isAdmin || ""
+    ).toLowerCase();
+
+    const isAdmin =
+      data.loggedIn === true &&
+      (role === "admin" || role === "true" || role === "1");
+
+    if (!isAdmin) {
       document.getElementById("adminContent").classList.add("hidden");
       document.getElementById("adminBlocked").classList.remove("hidden");
       return false;
@@ -15,7 +26,9 @@ async function verifyAdminAccess() {
     document.getElementById("adminContent").classList.remove("hidden");
     document.getElementById("adminBlocked").classList.add("hidden");
     return true;
-  } catch {
+  } catch (err) {
+    console.error("Admin access check failed:", err);
+
     document.getElementById("adminContent").classList.add("hidden");
     document.getElementById("adminBlocked").classList.remove("hidden");
     return false;

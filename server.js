@@ -88,6 +88,18 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
 app.use(express.static(path.join(__dirname, "public")));
 
+app.get("/api/admin/check", (req, res) => {
+  if (!req.session?.user) {
+    return res.status(401).json({ allowed: false });
+  }
+
+  if (req.session.user.role !== "admin") {
+    return res.status(403).json({ allowed: false });
+  }
+
+  return res.json({ allowed: true });
+});
+
 app.get("/api/suggestion-files/:filename", (req, res) => {
   const filename = path.basename(req.params.filename);
 
