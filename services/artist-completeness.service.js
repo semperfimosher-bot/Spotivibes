@@ -1,10 +1,11 @@
+const fs = require("fs/promises");
+const path = require("path");
 const pool = require("../database");
 
-const spotify = require("./spotify.service");
+const deezer = require("./deezer.service");
 const musicBrainz = require("./musicbrainz.service");
 
 const MAX_SUGGESTIONS = Number(process.env.MAX_ARTIST_SUGGESTIONS || 50);
-const SPOTIFY_MARKET = process.env.SPOTIFY_MARKET || "US";
 
 function normalizeTitle(title = "") {
   return title
@@ -20,17 +21,24 @@ function isBadSuggestionTitle(title = "") {
   const cleaned = title.toLowerCase();
 
   return [
-    "instrumental",
-    "karaoke",
-    "sped up",
-    "slowed",
-    "nightcore",
-    "remix",
-    "live",
-    "commentary",
-    "interlude",
-    "skit"
-  ].some(word => cleaned.includes(word));
+  "karaoke",
+  "sped up",
+  "slowed",
+  "nightcore",
+  "remix",
+  "live",
+  "commentary",
+  "interlude",
+  "skit",
+  "intro",
+  "outro",
+  "freestyle",
+  "demo",
+  "edit",
+  "version",
+  "tribute",
+  "cover"
+].some(word => cleaned.includes(word));
 }
 
 function addSuggestion(map, suggestion) {
@@ -49,12 +57,14 @@ function addSuggestion(map, suggestion) {
       source: suggestion.source || "Unknown",
       popularity: suggestion.popularity || 0,
       album: suggestion.album || null,
-      spotifyUrl: suggestion.spotifyUrl || null
+      externalUrl: suggestion.externalUrl || null,
+      previewUrl: suggestion.previewUrl || null,
+      providerId: suggestion.providerId || null
     });
     return;
   }
 
-  // Keep the better Spotify-ranked version if duplicate titles appear.
+  // Keep the better-ranked version if duplicate titles appear.
   if ((suggestion.popularity || 0) > (existing.popularity || 0)) {
     map.set(normalized, {
       ...existing,
@@ -83,43 +93,44 @@ async function getOwnedTitlesForArtist(artist) {
   );
 }
 
-async function getSpotifySuggestions(artist) {
-  console.log("Spotify configured?", spotify.spotifyIsConfigured());
+async function getDeezerSuggestions(artist) {
+  console.log("Searching Deezer artist:", artist);
 
-  if (!spotify.spotifyIsConfigured()) {
-    console.warn("Spotify is not configured. Skipping Spotify suggestions.");
-    return [];
-  }
+  const foundArtist = await deezer.searchArtist(artist);
 
-  console.log("Searching Spotify artist:", artist);
+  console.log("Deezer found artist:", foundArtist?.name, foundArtist?.id);
 
-  const foundArtist = await spotify.searchArtist(artist);
-
-console.log("Spotify found artist:", foundArtist?.name, foundArtist?.id);
-
-if (!foundArtist?.id) return [];
+  if (!foundArtist?.id) return [];
 
   const suggestions = [];
 
-  const topTracks = await spotify.getArtistTopTracks(foundArtist.id, SPOTIFY_MARKET);
+  // These are usually the best admin upload recommendations.
+  const topTracks = await deezer.getArtistTopTracks(foundArtist.id, 100);
 
   for (const track of topTracks) {
-    suggestions.push(spotify.spotifyTrackToSuggestion(track, "Spotify Top Tracks"));
+    suggestions.push(deezer.deezerTrackToSuggestion(track, "Deezer Top Tracks"));
   }
 
-  const albums = await spotify.getArtistAlbums(foundArtist.id, SPOTIFY_MARKET, 8);
+  // Albums are useful for filling gaps, but keep this smaller so notifications stay clean.
+  const albums = await deezer.getArtistAlbums(foundArtist.id, 25);
 
   for (const album of albums) {
-    const tracks = await spotify.getAlbumTracks(album.id, SPOTIFY_MARKET);
+    try {
+      const tracks = await deezer.getAlbumTracks(album.id, 50);
 
-    for (const track of tracks) {
-      suggestions.push({
-        title: track.name,
-        source: "Spotify Albums",
-        popularity: 0,
-        album: album.name,
-        spotifyUrl: track.external_urls?.spotify || null
-      });
+      for (const track of tracks) {
+        suggestions.push({
+          title: track.title_short || track.title,
+          source: "Deezer Albums",
+          popularity: 0,
+          album: album.title,
+          externalUrl: track.link || null,
+          previewUrl: track.preview || null,
+          providerId: track.id ? String(track.id) : null
+        });
+      }
+    } catch (err) {
+      console.warn(`Deezer album lookup failed for album ${album.id}:`, err.message);
     }
   }
 
@@ -131,15 +142,48 @@ async function getMusicBrainzSuggestions(artist) {
 
   if (!foundArtist?.id) return [];
 
-  const recordings = await musicBrainz.getArtistRecordings(foundArtist.id, 150);
+  const recordings = await musicBrainz.getArtistRecordings(foundArtist.id, 25);
 
   return recordings.map(recording => ({
     title: recording.title,
     source: "MusicBrainz",
     popularity: 0,
     album: null,
-    spotifyUrl: null
+    externalUrl: null,
+    previewUrl: null,
+    providerId: null
   }));
+}
+
+async function createSuggestionFile(artist, suggested) {
+  const safeArtist = artist
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const fileName = `${safeArtist}-${Date.now()}.txt`;
+
+  const folderPath = path.join(
+    __dirname,
+    "..",
+    "public",
+    "admin",
+    "suggestion-files"
+  );
+
+  await fs.mkdir(folderPath, { recursive: true });
+
+  const filePath = path.join(folderPath, fileName);
+
+  const fileText = [
+    `Suggested songs for ${artist}`,
+    "",
+    ...suggested.map(song => song.title)
+  ].join("\n");
+
+  await fs.writeFile(filePath, fileText, "utf8");
+
+  return `/admin/suggestion-files/${fileName}`;
 }
 
 async function checkArtistCompleteness(artist) {
@@ -149,7 +193,7 @@ async function checkArtistCompleteness(artist) {
   const suggestionMap = new Map();
 
   const results = await Promise.allSettled([
-    getSpotifySuggestions(artist),
+    getDeezerSuggestions(artist),
     getMusicBrainzSuggestions(artist)
   ]);
 
@@ -170,7 +214,7 @@ async function checkArtistCompleteness(artist) {
 
   const suggested = [...suggestionMap.values()]
     .sort((a, b) => {
-      // Spotify popular songs first, then alphabetically.
+      // Deezer ranked songs first, then alphabetically.
       if ((b.popularity || 0) !== (a.popularity || 0)) {
         return (b.popularity || 0) - (a.popularity || 0);
       }
@@ -190,27 +234,20 @@ async function checkArtistCompleteness(artist) {
     [`%${artist}%`]
   );
 
-  const lines = suggested.map(song => {
-    const extras = [
-      song.album ? `album: ${song.album}` : null,
-      song.source ? `source: ${song.source}` : null
-    ].filter(Boolean);
+  const suggestionFileUrl = await createSuggestionFile(artist, suggested);
 
-    return `• ${song.title}${extras.length ? ` (${extras.join(", ")})` : ""}`;
-  });
+await pool.query(
+  `
+  INSERT INTO notifications (type, message, time)
+  VALUES ($1, $2, NOW())
+  `,
+  [
+    "ARTIST_MISSING_SONGS",
+    `You uploaded music by ${artist}.\n\nOpen suggestion list:\n${suggestionFileUrl}`
+  ]
+);
 
-  await pool.query(
-    `
-    INSERT INTO notifications (type, message, time)
-    VALUES ($1, $2, NOW())
-    `,
-    [
-      "ARTIST_MISSING_SONGS",
-      `You uploaded music by ${artist}.\n\nSuggested songs to consider uploading:\n${lines.join("\n")}`
-    ]
-  );
-
-  console.log("Hybrid recommendation notification inserted:", artist);
+  console.log("Deezer + MusicBrainz recommendation notification inserted:", artist);
 }
 
 module.exports = {

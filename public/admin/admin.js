@@ -179,9 +179,12 @@ async function loadNotifications() {
   data.notifications.map(n => `
     <div class="row">
       <div class="notification-message">
-        [${n.time}] ${n.type}:
         
-${n.message}
+${String(n.message).replace(
+  /(\/admin\/suggestion-files\/[^\s]+)/g,
+  '<a href="$1" target="_blank">Open suggestion list</a>'
+)}
+
       </div>
     </div>
   `).join("");

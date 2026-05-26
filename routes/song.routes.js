@@ -39,6 +39,34 @@ const {
 
 const router = express.Router();
 
+function normalizeSongText(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/feat\.|featuring|ft\./g, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
+async function songAlreadyExists(title, artist) {
+  const normalizedTitle = normalizeSongText(title);
+  const normalizedArtist = normalizeSongText(artist);
+
+  const result = await pool.query(
+    `
+    SELECT id, title, artist
+    FROM songs
+    WHERE regexp_replace(lower(title), '[^a-z0-9]', '', 'g') = $1
+      AND regexp_replace(lower(artist), '[^a-z0-9]', '', 'g') = $2
+    LIMIT 1
+    `,
+    [normalizedTitle, normalizedArtist]
+  );
+
+  return result.rows[0] || null;
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -295,6 +323,28 @@ router.post(
         const album =
           metadata.common?.album ||
           "Unknown Album";
+
+        const existingSong = await songAlreadyExists(title, artist);
+
+if (existingSong) {
+  console.log(
+    "SKIPPING DUPLICATE SONG:",
+    title,
+    artist,
+    "already exists as ID",
+    existingSong.id
+  );
+
+  results.push({
+    filename: file.originalname,
+    success: true,
+    skipped: true,
+    reason: "Song already exists",
+    existingSongId: existingSong.id
+  });
+
+  continue;
+}
 
         let genre =
           Array.isArray(metadata.common?.genre)
