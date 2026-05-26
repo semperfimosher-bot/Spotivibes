@@ -18,13 +18,10 @@ const playlistRoutes = require("./routes/playlist.routes");
 const usersRoutes = require("./routes/users.routes");
 const statsRoutes = require("./routes/stats.routes");
 const helmet = require("helmet");
-const Sentry = require("@sentry/node");
 
-if (process.env.SENTRY_DSN) {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN
-  });
-}
+const {
+  createMissingArtistsNotification
+} = require("./services/artist-discovery.service");
 
 const app = express();
 app.use(helmet({
@@ -98,6 +95,15 @@ app.get("/api/admin/check", (req, res) => {
   }
 
   return res.json({ allowed: true });
+});
+
+app.post("/api/admin/discover-artists", requireAdmin, async (req, res, next) => {
+  try {
+    const result = await createMissingArtistsNotification();
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get("/api/suggestion-files/:filename", (req, res) => {

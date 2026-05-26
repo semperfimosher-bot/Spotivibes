@@ -38,6 +38,23 @@ document.getElementById("uploadSongsBtn")
 document.getElementById("uploadBackgroundBtn")
   ?.addEventListener("click", uploadBackground);
 
+  document.getElementById("discoverArtistsBtn")
+  ?.addEventListener("click", async () => {
+    try {
+      const data = await apiFetch("/api/admin/discover-artists", {
+        method: "POST",
+        credentials: "include"
+      });
+
+      alert(`Generated ${data.count} missing artist suggestions.`);
+
+      await loadNotifications();
+
+    } catch (err) {
+      alert(err.message || "Failed to generate artist suggestions");
+    }
+  });
+
 document.getElementById("songList")
   ?.addEventListener("click", (e) => {
     const deleteBtn = e.target.closest("[data-song-id]");
@@ -81,22 +98,16 @@ function deleteSong(id) {
 async function uploadFiles() {
   await loadConfig();
 
-  const files = Array.from(document.getElementById("fileInput").files);
-  const status = document.getElementById("status");
-  const bar = document.getElementById("uploadProgressBar");
-  const text = document.getElementById("uploadProgressText");
+  const fileInput = document.getElementById("fileInput");
+  const files = Array.from(fileInput.files);
 
   if (!files.length) {
-    status.innerText = "No files selected";
+    alert("No files selected");
     return;
   }
 
   const batchSize = 20;
   let uploaded = 0;
-
-  bar.style.width = "0%";
-  text.innerText = `0 of ${files.length} songs uploaded`;
-  status.innerText = "Uploading...";
 
   for (let i = 0; i < files.length; i += batchSize) {
     const batch = files.slice(i, i + batchSize);
@@ -108,43 +119,37 @@ async function uploadFiles() {
 
     let data;
 
-try {
-  data = await apiFetch("/api/upload-files", {
-    method: "POST",
-    body: formData
-  });
-} catch (err) {
-  status.innerText = err.message || "Upload failed";
-  return;
-}
+    try {
+      data = await apiFetch("/api/upload-files", {
+        method: "POST",
+        body: formData
+      });
+    } catch (err) {
+      alert(err.message || "Upload failed");
+      return;
+    }
 
     if (!data?.success) {
-  status.innerText = `Upload failed at song ${uploaded + 1}`;
-  return;
-}
+      alert(`Upload failed at song ${uploaded + 1}`);
+      return;
+    }
 
-const failed = data.results?.filter(r => !r.success) || [];
+    const failed = data.results?.filter(r => !r.success) || [];
+    const successCount = data.results?.filter(r => r.success).length || 0;
 
-if (failed.length) {
-  console.warn("Failed uploads:", failed);
-  status.innerText = `${failed.length} file(s) failed. Check console.`;
-}
+    uploaded += successCount;
 
-const successCount = data.results?.filter(r => r.success).length || 0;
-uploaded += successCount;
-
-    const percent = Math.round((uploaded / files.length) * 100);
-
-    bar.style.width = `${percent}%`;
-    text.innerText = `${uploaded} of ${files.length} songs uploaded`;
+    if (failed.length) {
+      console.warn("Failed uploads:", failed);
+    }
   }
 
-  status.innerText = "Upload complete!";
-  text.innerText = `${files.length} of ${files.length} songs uploaded`;
+  alert(`Upload complete. ${uploaded} song(s) processed.`);
 
-  document.getElementById("fileInput").value = "";
+  fileInput.value = "";
 
   await loadSongs();
+  await loadUploadStatus();
 }
 
 /* 🔥 FIXED BACKGROUND UPLOAD */
@@ -201,10 +206,12 @@ async function loadNotifications() {
     const message = String(n.message || "");
 
     const [header, ...rest] =
-      message.split("Suggested songs to consider uploading:");
+      message.includes("Suggested artists to consider uploading:")
+  ? message.split("Suggested artists to consider uploading:")
+  : message.split("Suggested songs to consider uploading:");
 
     const suggestions =
-      rest.join("Suggested songs to consider uploading:").trim();
+      rest.join("").trim();
 
     if (!suggestions) {
       return `
