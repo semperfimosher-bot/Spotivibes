@@ -203,7 +203,9 @@ async function checkArtistCompleteness(artist) {
     [`%${artist}%`]
   );
 
-  const lines = suggested.map(song => `• ${song.title}`);
+  const lines = suggested.map(song =>
+  `• ${song.title || song.name} - ${song.artist || artist}`
+);
 
 await pool.query(
   `
