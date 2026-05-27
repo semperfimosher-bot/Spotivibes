@@ -35,7 +35,9 @@ function isBadSuggestionTitle(title = "") {
   "edit",
   "version",
   "tribute",
-  "cover"
+  "cover",
+  "official music video",
+  "official video"
 ].some(word => cleaned.includes(word));
 }
 

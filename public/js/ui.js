@@ -4,6 +4,7 @@
 let searchCache = new Map();
 let activeDropdownIndex = -1;
 let currentDropdownItems = [];
+let suppressSearchDropdown = false;
 
 // ==========================
 // VIEW SYSTEM
@@ -48,31 +49,45 @@ function initUI() {
 const mobileSearchBar = document.getElementById("mobileSearchBar");
 
 if (searchBar) {
- searchBar.addEventListener(
+searchBar.addEventListener(
   "input",
-  debounce(handleSearch, 120)
+  debounce((e) => {
+    suppressSearchDropdown = false;
+    handleSearch(e);
+  }, 120)
 );
 
  searchBar?.addEventListener("keydown", async (e) => {
 
-  if (e.key === "Enter") {
-    e.preventDefault();
+if (e.key === "Enter") {
+  e.preventDefault();
 
-    const query = searchBar.value.trim();
+  const query = searchBar.value.trim();
 
-    if (!query) return;
+  if (!query) return;
+  suppressSearchDropdown = true;
 
-    closeSearchDropdown();
+  closeSearchDropdown();
 
-    apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`)
-      .then(renderSmartSearchResults)
-      .catch(err => {
-        console.warn("Search failed:", err.message);
-      });
+  const dropdown =
+    document.getElementById("searchDropdown");
 
-    return;
+  if (dropdown) {
+    dropdown.innerHTML = "";
+    dropdown.classList.add("hidden");
+    dropdown.style.display = "none";
   }
 
+  searchBar.blur();
+
+  apiFetch(`/api/smart-search?q=${encodeURIComponent(query)}`)
+    .then(renderSmartSearchResults)
+    .catch(err => {
+      console.warn("Search failed:", err.message);
+    });
+
+  return;
+}
 });
 }
 
@@ -390,6 +405,11 @@ function updateDropdownHighlight() {
 // ==========================
 async function handleSearch(e) {
   const query = e.target.value.trim();
+
+  if (suppressSearchDropdown) {
+  closeSearchDropdown();
+  return;
+}
 
   if (!query) {
     closeSearchDropdown();
