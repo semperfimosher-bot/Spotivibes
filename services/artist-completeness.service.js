@@ -203,9 +203,23 @@ async function checkArtistCompleteness(artist) {
     [`%${artist}%`]
   );
 
-  const lines = suggested.map(song =>
-  `• ${song.title || song.name} - ${song.artist || artist}`
-);
+  const lines = suggested
+  .sort((a, b) =>
+    String(a.title || a.name || "").localeCompare(
+      String(b.title || b.name || "")
+    )
+  )
+  .map(song =>
+    `• ${song.title || song.name} - ${song.artist || artist}`
+  );
+
+const albums = suggested
+  .filter(song => song.album)
+  .map(song => song.album)
+  .filter((album, index, arr) => arr.indexOf(album) === index)
+  .sort((a, b) => a.localeCompare(b));
+
+const albumLines = albums.map(album => `• ${album} - ${artist}`);
 
 await pool.query(
   `
@@ -214,10 +228,10 @@ await pool.query(
   `,
   [
     "ARTIST_MISSING_SONGS",
-    `You uploaded music by ${artist}.\n\nSuggested songs to consider uploading:\n${lines.join("\n")}`
+    `You uploaded music by ${artist}.\n\nSuggested songs to consider uploading:\n${lines.join("\n")}\n\nSuggested albums to consider uploading:\n${albumLines.join("\n")}`
   ]
 );
-
+  
   console.log("Deezer + MusicBrainz recommendation notification inserted:", artist);
 }
 
