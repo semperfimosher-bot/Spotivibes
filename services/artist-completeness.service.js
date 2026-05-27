@@ -219,7 +219,9 @@ const albums = suggested
   .filter((album, index, arr) => arr.indexOf(album) === index)
   .sort((a, b) => a.localeCompare(b));
 
-const albumLines = albums.map(album => `• ${album} - ${artist}`);
+const albumLines = albums.map(
+  album => `• ${album} - ${artist} Album`
+);
 
 await pool.query(
   `
