@@ -213,11 +213,23 @@ async function checkArtistCompleteness(artist) {
     `• ${song.title || song.name} - ${song.artist || artist}`
   );
 
-const albums = suggested
-  .filter(song => song.album)
-  .map(song => song.album)
-  .filter((album, index, arr) => arr.indexOf(album) === index)
-  .sort((a, b) => a.localeCompare(b));
+const albumCounts = {};
+
+suggested.forEach(song => {
+  if (!song.album) return;
+
+  const name = song.album.trim();
+
+  if (!albumCounts[name]) {
+    albumCounts[name] = 0;
+  }
+
+  albumCounts[name]++;
+});
+
+const albums = Object.entries(albumCounts)
+  .sort((a, b) => b[1] - a[1])
+  .map(([name]) => name);
 
 const albumLines = albums.map(
   album => `• ${album} - ${artist} Album`
@@ -230,7 +242,7 @@ await pool.query(
   `,
   [
     "ARTIST_MISSING_SONGS",
-    `You uploaded music by ${artist}.\n\nSuggested songs to consider uploading:\n${lines.join("\n")}\n\nSuggested albums to consider uploading:\n${albumLines.join("\n")}`
+    `You uploaded music by ${artist}.\n\nSuggested albums to consider uploading:\n${albumLines.join("\n")}\n\nSuggested songs to consider uploading:\n${lines.join("\n")}`
   ]
 );
   
