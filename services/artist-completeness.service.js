@@ -203,17 +203,7 @@ async function checkArtistCompleteness(artist) {
     [`%${artist}%`]
   );
 
-  const lines = suggested
-  .sort((a, b) =>
-    String(a.title || a.name || "").localeCompare(
-      String(b.title || b.name || "")
-    )
-  )
-  .map(song =>
-    `• ${song.title || song.name} - ${song.artist || artist}`
-  );
-
-const albumCounts = {};
+ const albumCounts = {};
 
 suggested.forEach(song => {
   if (!song.album) return;
@@ -234,6 +224,24 @@ const albums = Object.entries(albumCounts)
 const albumLines = albums.map(
   album => `• ${album} - ${artist} Album`
 );
+
+const albumSet = new Set(
+  albums.map(album => album.toLowerCase())
+);
+
+const lines = suggested
+  .filter(song => {
+    if (!song.album) return true;
+    return !albumSet.has(song.album.toLowerCase());
+  })
+  .sort((a, b) =>
+    String(a.title || a.name || "").localeCompare(
+      String(b.title || b.name || "")
+    )
+  )
+  .map(song =>
+    `• ${song.title || song.name} - ${song.artist || artist}`
+  );
 
 await pool.query(
   `

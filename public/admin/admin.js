@@ -205,13 +205,16 @@ async function loadNotifications() {
   data.notifications.map((n, index) => {
     const message = String(n.message || "");
 
-    const [header, ...rest] =
-      message.includes("Suggested artists to consider uploading:")
-  ? message.split("Suggested artists to consider uploading:")
-  : message.split("Suggested songs to consider uploading:");
+    const splitPhrase =
+  message.includes("Suggested albums to consider uploading:")
+    ? "Suggested albums to consider uploading:"
+    : message.includes("Suggested artists to consider uploading:")
+      ? "Suggested artists to consider uploading:"
+      : "Suggested songs to consider uploading:";
 
-    const suggestions =
-      rest.join("").trim();
+const [header, ...rest] = message.split(splitPhrase);
+
+const suggestions = `${splitPhrase}\n${rest.join(splitPhrase)}`.trim();
 
     if (!suggestions) {
       return `
