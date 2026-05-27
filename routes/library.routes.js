@@ -8,7 +8,7 @@ const {
 const router = express.Router();
 
 router.get("/", requireLogin, async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 50, 100);
+  const limit = Math.min(Number(req.query.limit) || 1000, 5000);
   const cursor = Number(req.query.cursor) || null;
 
   const params = [req.session.user.id, limit];

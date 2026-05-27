@@ -103,7 +103,7 @@ const upload = multer({
 
 router.get("/songs", requireLogin, async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const limit = Math.min(Number(req.query.limit) || 1000, 5000);
     const cursor = Number(req.query.cursor) || null;
 
     const params = [limit];
@@ -283,7 +283,7 @@ router.post(
     return requireAdmin(req, res, next);
   },
 
-  upload.array("songs", 5),
+  upload.array("songs", 50),
 
   async (req, res) => {
     const results = [];
@@ -299,7 +299,6 @@ router.post(
       let coverKey = null;
 
       try {
-        fileKey = `songs/${Date.now()}-${file.originalname}`;
 
         let metadata = {};
 
@@ -323,6 +322,17 @@ router.post(
         const album =
           metadata.common?.album ||
           "Unknown Album";
+
+        const safeArtistFolder = String(artist || "Unknown Artist")
+          .replace(/[<>:"/\\|?*]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        const safeFileName = String(file.originalname)
+          .replace(/[<>:"/\\|?*]/g, "")
+          .trim();
+
+        fileKey = `songs/${safeArtistFolder}/${Date.now()}-${safeFileName}`;
 
         const existingSong = await songAlreadyExists(title, artist);
 

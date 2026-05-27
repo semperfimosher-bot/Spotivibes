@@ -63,30 +63,70 @@ document.getElementById("songList")
     deleteSong(deleteBtn.dataset.songId);
   });
   
+function getArtistsFromSong(song) {
+  const artistText = String(song.artist || "Unknown Artist");
+
+  return artistText
+    .split(/,|&| x | X | with | feat\.|featuring| ft\./i)
+    .map(a => a.trim())
+    .filter(Boolean)
+    .filter(a => a.length > 1);
+}
+
 async function loadSongs() {
   await loadConfig();
 
-  const data = await apiFetch("/api/songs");
+  const data = await apiFetch("/api/songs?limit=1000");
 
   if (!data?.songs) {
-    document.getElementById("songList").innerHTML = "Failed to load songs";
+    document.getElementById("songList").innerHTML =
+      "Failed to load songs";
     return;
   }
 
-  const sorted = data.songs.sort((a, b) =>
-    a.title.localeCompare(b.title)
-  );
+  const allArtists = {};
+
+  data.songs.forEach(song => {
+    getArtistsFromSong(song).forEach(artist => {
+      if (!allArtists[artist]) allArtists[artist] = [];
+      allArtists[artist].push(song);
+    });
+  });
+
+ const artists = Object.keys(allArtists)
+  .sort((a, b) => a.localeCompare(b));
 
   document.getElementById("songList").innerHTML =
-    sorted.map(s => `
-      <div class="row">
-        <div>${s.title} - ${s.artist}</div>
-        <div class="deleteBtn" data-song-id="${s.id}">−</div>
+    artists.map((artist, index) => `
+      <div class="artistFolder">
+        <div class="artistFolderHeader" data-folder="${index}">
+          📁 ${artist}
+          <span>${allArtists[artist].length} song(s)</span>
+        </div>
+
+        <div class="artistFolderSongs hidden" id="folder-${index}">
+          ${allArtists[artist]
+            .sort((a, b) => a.title.localeCompare(b.title))
+            .map(song => `
+              <div class="row">
+                <div>${song.title} - ${song.artist}</div>
+                <div class="deleteBtn" data-song-id="${song.id}">−</div>
+              </div>
+            `).join("")}
+        </div>
       </div>
     `).join("");
+
+  document.querySelectorAll(".artistFolderHeader")
+    .forEach(folder => {
+      folder.addEventListener("click", () => {
+        document
+          .getElementById(`folder-${folder.dataset.folder}`)
+          .classList.toggle("hidden");
+      });
+    });
 }
 
-/* DELETE SONG */
 function deleteSong(id) {
   if (!confirm("Delete this song?")) return;
 
@@ -214,9 +254,13 @@ async function loadNotifications() {
 
 const [header, ...rest] = message.split(splitPhrase);
 
-const suggestions = `${splitPhrase}\n${rest.join(splitPhrase)}`.trim();
+const hasSuggestions = rest.length > 0;
 
-    if (!suggestions) {
+const suggestions = hasSuggestions
+  ? `${splitPhrase}\n${rest.join(splitPhrase)}`.trim()
+  : "";
+
+    if (!hasSuggestions) {
       return `
         <div class="row">
           <div class="notification-message">
