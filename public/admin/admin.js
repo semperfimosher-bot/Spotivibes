@@ -235,9 +235,14 @@ const suggestions = `${splitPhrase}\n${rest.join(splitPhrase)}`.trim();
           </div>
 
           <button class="viewSuggestionsBtn"
-                  data-suggestion-id="${index}">
-            View suggestions
-          </button>
+        data-suggestion-id="${index}">
+  View suggestions
+</button>
+
+<button class="deleteNotificationBtn"
+        data-notification-id="${n.id}">
+  Delete
+</button>
 
           <div id="suggestions-${index}"
                class="suggestionsBox hidden">
@@ -262,6 +267,24 @@ document.querySelectorAll(".viewSuggestionsBtn")
         box.classList.contains("hidden")
           ? "View suggestions"
           : "Hide suggestions";
+    });
+  });
+
+document.querySelectorAll(".deleteNotificationBtn")
+  .forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this suggestion notification?")) return;
+
+      try {
+        await apiFetch(`/api/notifications/${btn.dataset.notificationId}`, {
+          method: "DELETE",
+          credentials: "include"
+        });
+
+        await loadNotifications();
+      } catch (err) {
+        alert(err.message || "Failed to delete notification");
+      }
     });
   });
 }

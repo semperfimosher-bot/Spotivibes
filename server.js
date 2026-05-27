@@ -125,6 +125,23 @@ app.get("/api/suggestion-files/:filename", (req, res) => {
   });
 });
 
+app.delete("/api/notifications/:id", requireAdmin, async (req, res) => {
+  try {
+    await pool.query(
+      "DELETE FROM notifications WHERE id = $1",
+      [req.params.id]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to delete notification"
+    });
+  }
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
