@@ -203,10 +203,40 @@ async function checkArtistCompleteness(artist) {
     [`%${artist}%`]
   );
 
- const albumCounts = {};
+ function isLikelyAlbumName(album = "") {
+  const name = album.toLowerCase();
+
+  const badAlbumWords = [
+    "feat.",
+    "featuring",
+    "single",
+    "remix",
+    "mix",
+    "lyrics",
+    "official",
+    "voice performance",
+    "performance",
+    "karaoke",
+    "live",
+    "sped up",
+    "slowed"
+  ];
+
+  if (badAlbumWords.some(word => name.includes(word))) {
+    return false;
+  }
+
+  return true;
+}
+
+const albumCounts = {};
 
 suggested.forEach(song => {
   if (!song.album) return;
+
+  if (!isLikelyAlbumName(song.album)) {
+    return;
+  }
 
   const name = song.album.trim();
 
@@ -218,6 +248,7 @@ suggested.forEach(song => {
 });
 
 const albums = Object.entries(albumCounts)
+  .filter(([name, count]) => count >= 2)
   .sort((a, b) => b[1] - a[1])
   .map(([name]) => name);
 
