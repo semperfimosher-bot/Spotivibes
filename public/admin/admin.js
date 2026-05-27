@@ -351,12 +351,9 @@ document.getElementById("deleteAllContentBtn")
   const allowed = await verifyAdminAccess();
   if (!allowed) return;
 
-  setInterval(async () => {
-    const stillAllowed = await verifyAdminAccess();
-    if (!stillAllowed) return;
+  setInterval(loadUploadStatus, 2000);
 
-    loadUploadStatus();
-  }, 2000);
+  window.addEventListener("focus", verifyAdminAccess);
 
   loadUploadStatus();
   loadSongs();
