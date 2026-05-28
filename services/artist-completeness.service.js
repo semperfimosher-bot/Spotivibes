@@ -233,10 +233,7 @@ const albumCounts = {};
 
 suggested.forEach(song => {
   if (!song.album) return;
-
-  if (!isLikelyAlbumName(song.album)) {
-    return;
-  }
+  if (!isLikelyAlbumName(song.album)) return;
 
   const name = song.album.trim();
 
@@ -260,19 +257,49 @@ const albumSet = new Set(
   albums.map(album => album.toLowerCase())
 );
 
-const lines = suggested
-  .filter(song => {
-    if (!song.album) return true;
-    return !albumSet.has(song.album.toLowerCase());
-  })
+function isStandaloneSingle(song) {
+  if (!song.album) return true;
+
+  const album = song.album.toLowerCase();
+
+  if (albumSet.has(album)) return false;
+
+  const badSingleWords = [
+    "album",
+    "ep",
+    "deluxe",
+    "edition",
+    "anniversary",
+    "remix",
+    "live",
+    "karaoke",
+    "instrumental",
+    "sped up",
+    "slowed"
+  ];
+
+  if (badSingleWords.some(word => album.includes(word))) {
+    return false;
+  }
+
+  return false;
+}
+
+const songLines = suggested
+  .filter(song => isStandaloneSingle(song))
   .sort((a, b) =>
     String(a.title || a.name || "").localeCompare(
       String(b.title || b.name || "")
     )
   )
   .map(song =>
-    `• ${song.title || song.name} - ${song.artist || artist}`
+    `• ${song.title || song.name} - ${song.artist || artist} Song`
   );
+
+const songSection = songLines.length
+
+  ? `\n\nSuggested single songs to consider uploading:\n${songLines.join("\n")}`
+  : "";
 
 await pool.query(
   `
@@ -281,7 +308,7 @@ await pool.query(
   `,
   [
     "ARTIST_MISSING_SONGS",
-    `You uploaded music by ${artist}.\n\nSuggested albums to consider uploading:\n${albumLines.join("\n")}\n\nSuggested songs to consider uploading:\n${lines.join("\n")}`
+    `You uploaded music by ${artist}.\n\nSuggested albums to consider uploading:\n${albumLines.join("\n")}${songSection}`
   ]
 );
   
