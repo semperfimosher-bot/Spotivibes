@@ -3,6 +3,8 @@ const registerForm = document.getElementById("loginForm");
 registerForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
 
+  await loadConfig();
+
   const firstName = document.getElementById("firstName").value.trim();
   const lastName = document.getElementById("lastName").value.trim();
   const email = document.getElementById("email").value.trim();
