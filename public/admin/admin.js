@@ -148,7 +148,11 @@ async function loadSongs() {
 
   <span>
     ${duplicates.length} item(s)
-    <button id="deleteAllDuplicatesBtn" class="deleteDuplicateBtn">
+    
+    <button id="deleteAllDuplicatesBtn" class="deleteAllDuplicatesBtn">
+  Delete All
+</button>
+
       Delete All
     </button>
   </span>
@@ -185,23 +189,29 @@ async function loadSongs() {
       });
 
     document.querySelectorAll(".deleteDuplicateBtn")
-      .forEach(btn => {
-        btn.addEventListener("click", async () => {
+  .forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const duplicateId = btn.getAttribute("data-duplicate-id");
 
-          try {
-            await apiFetch(`/api/admin/duplicates/${btn.dataset.duplicateId}`, {
-              method: "DELETE",
-              credentials: "include"
-            });
+      if (!duplicateId) {
+        alert("Missing duplicate id.");
+        return;
+      }
 
-            await loadDuplicates();
-            await loadSongs();
-
-          } catch (err) {
-            alert(err.message || "Failed to delete duplicate");
-          }
+      try {
+        await apiFetch(`/api/admin/duplicates/${duplicateId}`, {
+          method: "DELETE",
+          credentials: "include"
         });
-      });
+
+        await loadDuplicates();
+        await loadSongs();
+
+      } catch (err) {
+        alert(err.message || "Failed to delete duplicate");
+      }
+    });
+  });
 
   } catch (err) {
     console.warn("Load duplicates failed:", err.message);
