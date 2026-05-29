@@ -181,7 +181,6 @@ async function loadSongs() {
     document.querySelectorAll(".deleteDuplicateBtn")
       .forEach(btn => {
         btn.addEventListener("click", async () => {
-          if (!confirm("Delete this duplicate from database and B2?")) return;
 
           try {
             await apiFetch(`/api/admin/duplicates/${btn.dataset.duplicateId}`, {
