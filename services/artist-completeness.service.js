@@ -158,6 +158,15 @@ async function getMusicBrainzSuggestions(artist) {
 async function checkArtistCompleteness(artist) {
   if (!artist || artist.toLowerCase() === "unknown artist") return;
 
+  await pool.query(
+  `
+  DELETE FROM notifications
+  WHERE type = 'ARTIST_MISSING_SONGS'
+    AND message ILIKE $1
+  `,
+  [`%You uploaded music by ${artist}%`]
+);
+
   const ownedTitles = await getOwnedTitlesForArtist(artist);
   const suggestionMap = new Map();
 
@@ -193,15 +202,6 @@ async function checkArtistCompleteness(artist) {
     .slice(0, MAX_SUGGESTIONS);
 
   if (!suggested.length) return;
-
-  await pool.query(
-    `
-    DELETE FROM notifications
-    WHERE type = 'ARTIST_MISSING_SONGS'
-      AND message ILIKE $1
-    `,
-    [`%${artist}%`]
-  );
 
  function isLikelyAlbumName(album = "") {
   const name = album.toLowerCase();
