@@ -49,6 +49,16 @@ function normalizeSongText(value = "") {
     .trim();
 }
 
+function normalizeDuplicateText(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\[[^\]]*\]/g, "")
+    .replace(/feat\.|featuring|ft\./gi, "")
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
 async function songAlreadyExists(title, artist) {
   const normalizedTitle = normalizeSongText(title);
   const normalizedArtist = normalizeSongText(artist);
@@ -1001,6 +1011,220 @@ const songsResult = await pool.query(
     res.status(500).json({
       success: false,
       error: "AI DJ command failed"
+    });
+  }
+});
+
+router.post("/admin/scan-duplicates", requireAdmin, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM duplicate_candidates");
+
+    const result = await pool.query(`
+      SELECT id, title, artist, album, duration, audio_url, cover_url
+      FROM songs
+      ORDER BY artist ASC, title ASC, id ASC
+    `);
+
+    const songs = result.rows;
+    const groups = new Map();
+
+    for (const song of songs) {
+      const key = [
+        normalizeDuplicateText(song.title),
+        normalizeDuplicateText(song.artist)
+      ].join("|");
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+
+      groups.get(key).push(song);
+    }
+
+    let inserted = 0;
+
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+
+      group.sort((a, b) => a.id - b.id);
+
+      const original = group[0];
+      const duplicates = group.slice(1);
+
+      for (const duplicate of duplicates) {
+        const durationClose =
+          !original.duration ||
+          !duplicate.duration ||
+          Math.abs(Number(original.duration) - Number(duplicate.duration)) <= 2;
+
+        if (!durationClose) continue;
+
+        await pool.query(
+          `
+          INSERT INTO duplicate_candidates
+          (original_song_id, duplicate_song_id, reason)
+          VALUES ($1, $2, $3)
+          `,
+          [
+            original.id,
+            duplicate.id,
+            "Same normalized title and artist with close duration"
+          ]
+        );
+
+        inserted++;
+      }
+    }
+
+    res.json({
+      success: true,
+      count: inserted
+    });
+
+  } catch (err) {
+    console.error("SCAN DUPLICATES ERROR:", err);
+    res.status(500).json({
+      error: "Failed to scan duplicates"
+    });
+  }
+});
+
+router.get("/admin/duplicates", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        dc.id,
+        dc.reason,
+
+        original.id AS original_id,
+        original.title AS original_title,
+        original.artist AS original_artist,
+        original.album AS original_album,
+        original.duration AS original_duration,
+
+        duplicate.id AS duplicate_id,
+        duplicate.title AS duplicate_title,
+        duplicate.artist AS duplicate_artist,
+        duplicate.album AS duplicate_album,
+        duplicate.duration AS duplicate_duration
+
+      FROM duplicate_candidates dc
+      JOIN songs original
+        ON original.id = dc.original_song_id
+      JOIN songs duplicate
+        ON duplicate.id = dc.duplicate_song_id
+      ORDER BY duplicate.artist ASC, duplicate.title ASC
+    `);
+
+    res.json({
+      duplicates: result.rows
+    });
+
+  } catch (err) {
+    console.error("LOAD DUPLICATES ERROR:", err);
+    res.status(500).json({
+      error: "Failed to load duplicates"
+    });
+  }
+});
+
+router.delete("/admin/duplicates/:id", requireAdmin, async (req, res) => {
+  const duplicateCandidateId = req.params.id;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        dc.id,
+        dc.duplicate_song_id,
+        s.audio_url,
+        s.cover_url
+      FROM duplicate_candidates dc
+      JOIN songs s
+        ON s.id = dc.duplicate_song_id
+      WHERE dc.id = $1
+      LIMIT 1
+      `,
+      [duplicateCandidateId]
+    );
+
+    const item = result.rows[0];
+
+    if (!item) {
+      return res.status(404).json({
+        error: "Duplicate candidate not found"
+      });
+    }
+
+    if (item.audio_url) {
+      try {
+        await b2.send(
+          new DeleteObjectCommand({
+            Bucket: B2_AUDIO_BUCKET_NAME,
+            Key: item.audio_url
+          })
+        );
+      } catch (err) {
+        console.warn("Duplicate audio B2 delete warning:", err.message);
+      }
+    }
+
+    if (item.cover_url) {
+      try {
+        await b2.send(
+          new DeleteObjectCommand({
+            Bucket: B2_COVER_BUCKET_NAME,
+            Key: item.cover_url
+          })
+        );
+      } catch (err) {
+        console.warn("Duplicate cover B2 delete warning:", err.message);
+      }
+    }
+
+    await pool.query("BEGIN");
+
+    await pool.query(
+      "DELETE FROM playlist_songs WHERE song_id = $1",
+      [item.duplicate_song_id]
+    );
+
+    await pool.query(
+      "DELETE FROM user_library WHERE song_id = $1",
+      [item.duplicate_song_id]
+    );
+
+    await pool.query(
+      "DELETE FROM listening_history WHERE song_id = $1",
+      [item.duplicate_song_id]
+    );
+
+    await pool.query(
+      "DELETE FROM playback_events WHERE song_id = $1",
+      [item.duplicate_song_id]
+    );
+
+    await pool.query(
+      "DELETE FROM songs WHERE id = $1",
+      [item.duplicate_song_id]
+    );
+
+    await pool.query(
+      "DELETE FROM duplicate_candidates WHERE id = $1",
+      [duplicateCandidateId]
+    );
+
+    await pool.query("COMMIT");
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+    await pool.query("ROLLBACK").catch(() => {});
+    console.error("DELETE DUPLICATE ERROR:", err);
+    res.status(500).json({
+      error: "Failed to delete duplicate"
     });
   }
 });

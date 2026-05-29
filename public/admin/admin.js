@@ -127,6 +127,82 @@ async function loadSongs() {
     });
 }
 
+    async function loadDuplicates() {
+  const folder = document.getElementById("duplicateFolder");
+  if (!folder) return;
+
+  try {
+    const data = await apiFetch("/api/admin/duplicates");
+
+    const duplicates = data.duplicates || [];
+
+    if (!duplicates.length) {
+      folder.innerHTML = "";
+      return;
+    }
+
+    folder.innerHTML = `
+      <div class="duplicateFolder">
+        <div class="duplicateFolderHeader" id="duplicateFolderHeader">
+          📁 DUPLICATES
+          <span>${duplicates.length} item(s)</span>
+        </div>
+
+        <div class="duplicateFolderSongs hidden" id="duplicateFolderSongs">
+          ${duplicates.map(d => `
+            <div class="row">
+              <div>
+                <strong>${d.duplicate_title} - ${d.duplicate_artist}</strong>
+
+                <div class="duplicateInfo">
+                  Keeping: ${d.original_title} - ${d.original_artist}
+                  <br>
+                  Reason: ${d.reason}
+                </div>
+              </div>
+
+              <button class="deleteDuplicateBtn"
+                      data-duplicate-id="${d.id}">
+                Delete
+              </button>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    document.getElementById("duplicateFolderHeader")
+      ?.addEventListener("click", () => {
+        document
+          .getElementById("duplicateFolderSongs")
+          ?.classList.toggle("hidden");
+      });
+
+    document.querySelectorAll(".deleteDuplicateBtn")
+      .forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Delete this duplicate from database and B2?")) return;
+
+          try {
+            await apiFetch(`/api/admin/duplicates/${btn.dataset.duplicateId}`, {
+              method: "DELETE",
+              credentials: "include"
+            });
+
+            await loadDuplicates();
+            await loadSongs();
+
+          } catch (err) {
+            alert(err.message || "Failed to delete duplicate");
+          }
+        });
+      });
+
+  } catch (err) {
+    console.warn("Load duplicates failed:", err.message);
+  }
+}
+
 function deleteSong(id) {
   if (!confirm("Delete this song?")) return;
 
@@ -360,6 +436,24 @@ document.getElementById("deleteAllContentBtn")
     location.reload();
   });
 
+  document.getElementById("scanDuplicatesBtn")
+  ?.addEventListener("click", async () => {
+    if (!confirm("Scan library for duplicates?")) return;
+
+    try {
+      const data = await apiFetch("/api/admin/scan-duplicates", {
+        method: "POST",
+        credentials: "include"
+      });
+
+      alert(`Found ${data.count} duplicate candidate(s).`);
+
+      await loadDuplicates();
+    } catch (err) {
+      alert(err.message || "Duplicate scan failed");
+    }
+  });
+
   async function loadUploadStatus() {
   const summary = document.getElementById("uploadStatusSummary");
   const list = document.getElementById("uploadStatusList");
@@ -401,5 +495,7 @@ document.getElementById("deleteAllContentBtn")
 
   loadUploadStatus();
   loadSongs();
+  loadDuplicates();
   loadNotifications();
+ 
 })();

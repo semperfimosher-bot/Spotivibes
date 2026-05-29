@@ -192,6 +192,39 @@
   padding-left: 14px;
 }
 
+.duplicateFolder {
+  margin-bottom: 12px;
+}
+
+.duplicateFolderHeader {
+  padding: 10px 12px;
+  background: #2a0000;
+  border: 1px solid rgba(255, 0, 0, 0.35);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.duplicateFolderSongs {
+  margin-top: 6px;
+  padding-left: 14px;
+}
+
+.duplicateInfo {
+  color: #aaa;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.deleteDuplicateBtn {
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #7a0000;
+}
+
 </style>
 </head>
 
@@ -214,8 +247,17 @@
   <div class="main">
 
     <div id="library">
-      <h2>All Songs</h2>
-      <div id="songList"></div>
+     <h2>All Songs</h2>
+
+<button id="scanDuplicatesBtn">
+  🔍 Scan For Duplicates
+</button>
+
+<br><br>
+
+<div id="duplicateFolder"></div>
+
+<div id="songList"></div>
     </div>
 
     <div id="upload" class="hidden">

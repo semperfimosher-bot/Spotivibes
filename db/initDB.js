@@ -73,6 +73,16 @@ async function initDB() {
   )
 `);
 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS duplicate_candidates (
+    id SERIAL PRIMARY KEY,
+    original_song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+    duplicate_song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+    reason TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`);
+
   await pool.query(`
   ALTER TABLE playlists
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()
