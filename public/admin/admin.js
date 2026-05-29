@@ -428,8 +428,7 @@ document.querySelectorAll(".viewSuggestionsBtn")
 document.querySelectorAll(".deleteNotificationBtn")
   .forEach(btn => {
     btn.addEventListener("click", async () => {
-      if (!confirm("Delete this suggestion notification?")) return;
-
+      
       try {
         await apiFetch(`/api/notifications/${btn.dataset.notificationId}`, {
           method: "DELETE",
