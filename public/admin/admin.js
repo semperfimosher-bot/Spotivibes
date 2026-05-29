@@ -143,10 +143,16 @@ async function loadSongs() {
 
     folder.innerHTML = `
       <div class="duplicateFolder">
-        <div class="duplicateFolderHeader" id="duplicateFolderHeader">
-          📁 DUPLICATES
-          <span>${duplicates.length} item(s)</span>
-        </div>
+       <div class="duplicateFolderHeader" id="duplicateFolderHeader">
+  <span>📁 DUPLICATES</span>
+
+  <span>
+    ${duplicates.length} item(s)
+    <button id="deleteAllDuplicatesBtn" class="deleteDuplicateBtn">
+      Delete All
+    </button>
+  </span>
+</div>
 
         <div class="duplicateFolderSongs hidden" id="duplicateFolderSongs">
           ${duplicates.map(d => `
@@ -200,6 +206,26 @@ async function loadSongs() {
   } catch (err) {
     console.warn("Load duplicates failed:", err.message);
   }
+
+  document.getElementById("deleteAllDuplicatesBtn")
+  ?.addEventListener("click", async (e) => {
+    e.stopPropagation();
+
+    try {
+      const data = await apiFetch("/api/admin/duplicates", {
+        method: "DELETE",
+        credentials: "include"
+      });
+
+      alert(`Deleted ${data.deleted} duplicate(s).`);
+
+      await loadDuplicates();
+      await loadSongs();
+
+    } catch (err) {
+      alert(err.message || "Failed to delete all duplicates");
+    }
+  });
 }
 
 function deleteSong(id) {

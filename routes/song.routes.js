@@ -1129,6 +1129,78 @@ router.get("/admin/duplicates", requireAdmin, async (req, res) => {
 });
 
 router.delete("/admin/duplicates/:id", requireAdmin, async (req, res) => {
+
+  router.delete("/admin/duplicates", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        dc.id,
+        dc.duplicate_song_id,
+        s.audio_url,
+        s.cover_url
+      FROM duplicate_candidates dc
+      JOIN songs s
+        ON s.id = dc.duplicate_song_id
+      ORDER BY dc.id ASC
+    `);
+
+    let deleted = 0;
+
+    for (const item of result.rows) {
+      if (item.audio_url) {
+        try {
+          await b2.send(
+            new DeleteObjectCommand({
+              Bucket: B2_AUDIO_BUCKET_NAME,
+              Key: item.audio_url
+            })
+          );
+        } catch (err) {
+          console.warn("Duplicate audio B2 delete warning:", err.message);
+        }
+      }
+
+      if (item.cover_url) {
+        try {
+          await b2.send(
+            new DeleteObjectCommand({
+              Bucket: B2_COVER_BUCKET_NAME,
+              Key: item.cover_url
+            })
+          );
+        } catch (err) {
+          console.warn("Duplicate cover B2 delete warning:", err.message);
+        }
+      }
+
+      await pool.query("BEGIN");
+
+      await pool.query("DELETE FROM playlist_songs WHERE song_id = $1", [item.duplicate_song_id]);
+      await pool.query("DELETE FROM user_library WHERE song_id = $1", [item.duplicate_song_id]);
+      await pool.query("DELETE FROM listening_history WHERE song_id = $1", [item.duplicate_song_id]);
+      await pool.query("DELETE FROM playback_events WHERE song_id = $1", [item.duplicate_song_id]);
+      await pool.query("DELETE FROM songs WHERE id = $1", [item.duplicate_song_id]);
+      await pool.query("DELETE FROM duplicate_candidates WHERE id = $1", [item.id]);
+
+      await pool.query("COMMIT");
+
+      deleted++;
+    }
+
+    res.json({
+      success: true,
+      deleted
+    });
+
+  } catch (err) {
+    await pool.query("ROLLBACK").catch(() => {});
+    console.error("DELETE ALL DUPLICATES ERROR:", err);
+    res.status(500).json({
+      error: "Failed to delete all duplicates"
+    });
+  }
+});
+
   const duplicateCandidateId = req.params.id;
 
   try {
