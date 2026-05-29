@@ -800,6 +800,211 @@ router.get("/recommendations/next", requireLogin, async (req, res) => {
   }
 });
 
+router.post("/ai-dj-command", requireLogin, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const command = String(req.body.command || "").toLowerCase().trim();
+    const currentSongId = Number(req.body.currentSongId) || null;
+
+    if (!command) {
+      return res.json({
+        success: false,
+        message: "No command heard."
+      });
+    }
+
+    if (command.includes("pause") || command.includes("stop")) {
+      return res.json({
+        success: true,
+        action: "pause",
+        message: "Paused."
+      });
+    }
+
+    if (command.includes("resume") || command.includes("play again")) {
+      return res.json({
+        success: true,
+        action: "resume",
+        message: "Playing."
+      });
+    }
+
+    if (command.includes("skip") || command.includes("next")) {
+      return res.json({
+        success: true,
+        action: "skip",
+        message: "Skipping."
+      });
+    }
+
+    if (
+      command.includes("continue the mood") ||
+      command.includes("keep the vibe") ||
+      command.includes("similar songs") ||
+      command.includes("something like this")
+    ) {
+      return res.json({
+        success: true,
+        action: "continueMood",
+        message: "Continuing the vibe."
+      });
+    }
+
+    let query = command
+      .replace(/^play\s+/i, "")
+      .replace(/^shuffle\s+/i, "")
+      .replace(/^start\s+/i, "")
+      .replace(/\s+playlist$/i, "")
+      .trim();
+
+    if (!query) {
+      return res.json({
+        success: false,
+        message: "I did not catch what to play."
+      });
+    }
+
+    const playlistResult = await pool.query(
+      `
+      SELECT p.id, p.name
+      FROM playlists p
+      WHERE p.user_id = $1
+        AND lower(p.name) LIKE lower($2)
+      ORDER BY p.created_at DESC
+      LIMIT 1
+      `,
+      [userId, `%${query}%`]
+    );
+
+    if (playlistResult.rows.length) {
+      const playlist = playlistResult.rows[0];
+
+      const songsResult = await pool.query(
+        `
+        SELECT s.*
+        FROM playlist_songs ps
+        JOIN songs s ON s.id = ps.song_id
+        WHERE ps.playlist_id = $1
+        ORDER BY s.artist ASC, s.album ASC, s.title ASC
+        `,
+        [playlist.id]
+      );
+
+      const songs = songsResult.rows.map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        genre: s.genre,
+        year: s.year,
+        mood: s.mood,
+        energy: s.energy,
+        era: s.era,
+        coverUrl: getPublicCoverUrl(s.cover_url)
+      }));
+
+      if (songs.length) {
+        return res.json({
+          success: true,
+          action: "playSongs",
+          contextType: "voice-playlist",
+          message: `Playing ${playlist.name}.`,
+          songs
+        });
+      }
+    }
+
+const songsResult = await pool.query(
+  `
+  SELECT *
+  FROM songs
+  WHERE
+    lower(artist) = lower($2)
+    OR lower(title) = lower($2)
+    OR lower(artist) LIKE lower($1)
+    OR lower(title) LIKE lower($1)
+    OR lower(album) LIKE lower($1)
+    OR lower(genre) LIKE lower($1)
+  ORDER BY
+    CASE
+      WHEN lower(artist) = lower($2) THEN 1
+      WHEN lower(title) = lower($2) THEN 2
+      WHEN lower(artist) LIKE lower($1) THEN 3
+      WHEN lower(title) LIKE lower($1) THEN 4
+      WHEN lower(album) LIKE lower($1) THEN 5
+      ELSE 6
+    END,
+    artist ASC,
+    album ASC,
+    title ASC
+  LIMIT 40
+  `,
+  [`%${query}%`, query]
+);
+
+    let songs = songsResult.rows.map(s => ({
+      id: s.id,
+      title: s.title,
+      artist: s.artist,
+      album: s.album,
+      genre: s.genre,
+      year: s.year,
+      mood: s.mood,
+      energy: s.energy,
+      era: s.era,
+      coverUrl: getPublicCoverUrl(s.cover_url)
+    }));
+
+    if (!songs.length && currentSongId) {
+      const recResult = await pool.query(
+        `
+        SELECT *
+        FROM songs
+        WHERE id <> $1
+        ORDER BY RANDOM()
+        LIMIT 25
+        `,
+        [currentSongId]
+      );
+
+      songs = recResult.rows.map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        genre: s.genre,
+        year: s.year,
+        mood: s.mood,
+        energy: s.energy,
+        era: s.era,
+        coverUrl: getPublicCoverUrl(s.cover_url)
+      }));
+    }
+
+    if (!songs.length) {
+      return res.json({
+        success: false,
+        message: `I could not find ${query}.`
+      });
+    }
+
+    return res.json({
+      success: true,
+      action: "playSongs",
+      contextType: "voice-search",
+      message: `Playing ${query}.`,
+      songs
+    });
+
+  } catch (err) {
+    console.error("AI DJ COMMAND ERROR:", err);
+    res.status(500).json({
+      success: false,
+      error: "AI DJ command failed"
+    });
+  }
+});
+
 /* ---------------- SMART SEARCH ---------------- */
 
 router.get("/smart-search", requireLogin, async (req, res) => {
