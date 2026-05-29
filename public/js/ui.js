@@ -1578,6 +1578,7 @@ function initMoreSheet() {
   const songInfoModal = document.getElementById("songInfoModal");
   const closeInfoBtn = document.getElementById("closeSongInfo");
   const songInfoContent = document.getElementById("songInfoContent");
+  const openVoiceDjBtn = document.getElementById("openVoiceDj");
 
   openInfoBtn?.addEventListener("click", () => {
   const song = state.songs.find(
@@ -1614,6 +1615,16 @@ songInfoModal?.addEventListener("click", (e) => {
 openQueueBtn?.addEventListener("click", () => {
   showView("queue");
   renderQueue();
+  moreSheet?.classList.add("hidden");
+});
+
+openVoiceDjBtn?.addEventListener("click", () => {
+  if (window.voiceListening) {
+    window.stopVoiceDj?.();
+  } else {
+    window.startVoiceDj?.();
+  }
+
   moreSheet?.classList.add("hidden");
 });
 

@@ -1725,4 +1725,8 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
   min-height: 36px;
   font-size: 21px;
 }
+
+#moreBtn.voice-active::after {
+  content: "🎙";
+}
 }

@@ -244,3 +244,10 @@ document.getElementById("voiceDjBtn")?.addEventListener("click", () => {
     startVoiceDj();
   }
 });
+
+window.startVoiceDj = startVoiceDj;
+window.stopVoiceDj = stopVoiceDj;
+
+Object.defineProperty(window, "voiceListening", {
+  get: () => voiceListening
+});
