@@ -2,11 +2,16 @@
 const pool = require("../database");
 
 async function initDB() {
+  console.log("Initializing database...");
 
-  await pool.query(`
-  CREATE EXTENSION IF NOT EXISTS pg_trgm
-`);
-
+  try {
+    await pool.query(`
+      CREATE EXTENSION IF NOT EXISTS pg_trgm
+    `);
+  } catch (err) {
+    console.warn("pg_trgm init skipped:", err.message);
+  }
+  
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -59,6 +64,16 @@ async function initDB() {
   `);
 
   await pool.query(`
+  CREATE TABLE IF NOT EXISTS playback_events (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`);
+
+  await pool.query(`
   ALTER TABLE playlists
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()
 `);
@@ -101,6 +116,18 @@ await pool.query(`ALTER TABLE songs ADD COLUMN IF NOT EXISTS genre TEXT`);
   await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS is_generated BOOLEAN DEFAULT false`);
   await pool.query(`ALTER TABLE playlists ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_pic_url TEXT`);
+ 
+  await pool.query(`
+  ALTER TABLE songs ADD COLUMN IF NOT EXISTS mood TEXT;
+`);
+
+await pool.query(`
+  ALTER TABLE songs ADD COLUMN IF NOT EXISTS energy TEXT;
+`);
+
+await pool.query(`
+  ALTER TABLE songs ADD COLUMN IF NOT EXISTS era TEXT;
+`);
 
  await pool.query(`
   CREATE INDEX IF NOT EXISTS idx_songs_id_desc

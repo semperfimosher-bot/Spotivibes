@@ -602,6 +602,204 @@ router.delete("/songs/:id", requireAdmin, async (req, res) => {
   }
 });
 
+router.post("/playback-event", requireLogin, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const { songId, eventType } = req.body;
+
+    const allowed = ["play", "complete", "skip", "replay"];
+
+    if (!songId || !allowed.includes(eventType)) {
+      return res.status(400).json({ error: "Invalid playback event" });
+    }
+
+    await pool.query(
+      `
+      INSERT INTO playback_events (user_id, song_id, event_type)
+      VALUES ($1, $2, $3)
+      `,
+      [userId, songId, eventType]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("PLAYBACK EVENT ERROR:", err);
+    res.status(500).json({ error: "Failed to save playback event" });
+  }
+});
+
+router.get("/recommendations/next", requireLogin, async (req, res) => {
+  try {
+    const userId = req.session.user.id;
+    const currentSongId = Number(req.query.currentSongId);
+
+    if (!currentSongId) {
+      return res.json({ songs: [] });
+    }
+
+    const result = await pool.query(
+      `
+      WITH current_song AS (
+        SELECT id, artist, album, genre, year, mood, energy, era
+        FROM songs
+        WHERE id = $2
+        LIMIT 1
+      ),
+
+      recent_plays AS (
+        SELECT song_id
+        FROM playback_events
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 30
+      ),
+
+      user_artist_scores AS (
+        SELECT s.artist,
+          SUM(
+            CASE
+              WHEN pe.event_type = 'complete' THEN 5
+              WHEN pe.event_type = 'play' THEN 2
+              WHEN pe.event_type = 'replay' THEN 8
+              WHEN pe.event_type = 'skip' THEN -6
+              ELSE 0
+            END
+          ) AS score
+        FROM playback_events pe
+        JOIN songs s ON s.id = pe.song_id
+        WHERE pe.user_id = $1
+        GROUP BY s.artist
+      ),
+
+      user_genre_scores AS (
+        SELECT s.genre,
+          SUM(
+            CASE
+              WHEN pe.event_type = 'complete' THEN 5
+              WHEN pe.event_type = 'play' THEN 2
+              WHEN pe.event_type = 'replay' THEN 8
+              WHEN pe.event_type = 'skip' THEN -6
+              ELSE 0
+            END
+          ) AS score
+        FROM playback_events pe
+        JOIN songs s ON s.id = pe.song_id
+        WHERE pe.user_id = $1
+          AND s.genre IS NOT NULL
+        GROUP BY s.genre
+      ),
+
+      scored AS (
+        SELECT
+          s.*,
+
+          (
+            CASE
+              WHEN s.mood IS NOT NULL
+               AND cs.mood IS NOT NULL
+               AND lower(s.mood) = lower(cs.mood) THEN 180
+              ELSE 0
+            END +
+
+            CASE
+              WHEN s.energy IS NOT NULL
+               AND cs.energy IS NOT NULL
+               AND lower(s.energy) = lower(cs.energy) THEN 160
+              ELSE 0
+            END +
+
+            CASE
+              WHEN s.genre IS NOT NULL
+               AND cs.genre IS NOT NULL
+               AND lower(s.genre) = lower(cs.genre) THEN 140
+              ELSE 0
+            END +
+
+            COALESCE((
+              SELECT uas.score * 8
+              FROM user_artist_scores uas
+              WHERE lower(uas.artist) = lower(s.artist)
+              LIMIT 1
+            ), 0) +
+
+            COALESCE((
+              SELECT ugs.score * 6
+              FROM user_genre_scores ugs
+              WHERE lower(ugs.genre) = lower(s.genre)
+              LIMIT 1
+            ), 0) +
+
+            CASE
+              WHEN lower(s.artist) = lower(cs.artist) THEN 80
+              ELSE 0
+            END +
+
+            CASE
+              WHEN s.album IS NOT NULL
+               AND cs.album IS NOT NULL
+               AND lower(s.album) = lower(cs.album) THEN 50
+              ELSE 0
+            END +
+
+            CASE
+              WHEN s.era IS NOT NULL
+               AND cs.era IS NOT NULL
+               AND lower(s.era) = lower(cs.era) THEN 30
+              ELSE 0
+            END +
+
+            CASE
+              WHEN s.year IS NOT NULL
+               AND cs.year IS NOT NULL
+               AND s.year ~ '^[0-9]+$'
+               AND cs.year ~ '^[0-9]+$'
+               AND ABS(CAST(s.year AS INT) - CAST(cs.year AS INT)) <= 3 THEN 20
+              ELSE 0
+            END
+
+          ) AS recommendation_score
+
+        FROM songs s
+        CROSS JOIN current_song cs
+        WHERE s.id <> cs.id
+          AND s.id NOT IN (SELECT song_id FROM recent_plays)
+      )
+
+      SELECT *
+      FROM scored
+      WHERE recommendation_score > 0
+      ORDER BY
+        recommendation_score DESC,
+        artist ASC,
+        album ASC,
+        title ASC
+      LIMIT 25
+      `,
+      [userId, currentSongId]
+    );
+
+    res.json({
+      songs: result.rows.map(s => ({
+        id: s.id,
+        title: s.title,
+        artist: s.artist,
+        album: s.album,
+        genre: s.genre,
+        year: s.year,
+        mood: s.mood,
+        energy: s.energy,
+        era: s.era,
+        coverUrl: getPublicCoverUrl(s.cover_url)
+      }))
+    });
+  } catch (err) {
+    console.error("NEXT RECOMMENDATIONS ERROR:", err);
+    res.status(500).json({
+      error: "Failed to load recommendations"
+    });
+  }
+});
+
 /* ---------------- SMART SEARCH ---------------- */
 
 router.get("/smart-search", requireLogin, async (req, res) => {

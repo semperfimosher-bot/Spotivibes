@@ -4,8 +4,14 @@ window.state = {
   currentId: null,
   isPlaying: false,
   library: [],
-libraryPlaylists: [],
-customPlaylists: [],
+  libraryPlaylists: [],
+  customPlaylists: [],
+
+  playbackContext: {
+    type: "normal",
+    songs: [],
+    index: 0
+  }
 };
 
 window.audio = document.getElementById("audio");

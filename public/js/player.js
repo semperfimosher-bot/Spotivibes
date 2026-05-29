@@ -141,6 +141,17 @@ getLyrics(song)
   updatePlayButton();
   highlightCurrentSong?.();
   preloadNextTwoSongs();
+
+  apiFetch("/api/playback-event", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    songId: id,
+    eventType: "play"
+  })
+}).catch(() => {});
 }
 
 async function togglePlay() {
@@ -187,19 +198,43 @@ async function nextSong() {
     return;
   }
 
+  const context = state.playbackContext;
+
+  if (context?.songs?.length) {
+    const nextIndex = context.index + 1;
+
+    if (nextIndex < context.songs.length) {
+      context.index = nextIndex;
+      const nextSong = context.songs[nextIndex];
+
+      await playSong(nextSong.id);
+      return;
+    }
+  }
+
+  try {
+    const data = await apiFetch(
+  `/api/recommendations/next?currentSongId=${state.currentId}`
+);
+
+    if (data?.songs?.length) {
+      setPlaybackContext("recommendations", data.songs, 0);
+      await playSong(data.songs[0].id);
+      return;
+    }
+  } catch (err) {
+    console.warn("Recommendation fallback failed:", err.message);
+  }
+
   const i = state.songs.findIndex(
     s => String(s.id) === String(state.currentId)
   );
 
-  if (i < state.songs.length - 1) {
-    await playSong(state.songs[i + 1].id);
-    return;
-  }
+  const fallbackSong = state.songs[i + 1] || state.songs[0];
 
-  await loadMoreSongs();
-
-  if (state.songs[i + 1]) {
-    await playSong(state.songs[i + 1].id);
+  if (fallbackSong) {
+    setPlaybackContext("normal", state.songs, i + 1);
+    await playSong(fallbackSong.id);
   }
 }
 
@@ -371,6 +406,32 @@ audio.addEventListener("ended", () => {
     audio.play();
     return;
   }
+
+  if (state.currentId) {
+  apiFetch("/api/playback-event", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      songId: state.currentId,
+      eventType: "complete"
+    })
+  }).catch(() => {});
+}
+
+if (state.currentId && audio.currentTime < audio.duration * 0.7) {
+  apiFetch("/api/playback-event", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      songId: state.currentId,
+      eventType: "skip"
+    })
+  }).catch(() => {});
+}
 
   nextSong();
 });

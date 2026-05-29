@@ -6,6 +6,14 @@ let activeDropdownIndex = -1;
 let currentDropdownItems = [];
 let suppressSearchDropdown = false;
 
+function setPlaybackContext(type, songs = [], index = 0) {
+  state.playbackContext = {
+    type,
+    songs,
+    index
+  };
+}
+
 // ==========================
 // VIEW SYSTEM
 // ==========================
@@ -383,6 +391,9 @@ function renderSearchDropdown(songs = []) {
 function selectDropdownItem(song) {
   saveRecentSearch(song.title);
   closeSearchDropdown();
+
+  setPlaybackContext("suggestions", [song], 0);
+
   playSong(song.id);
 }
 
@@ -455,10 +466,17 @@ function renderSmartSearchResults(data) {
   }
 
   if (data.songs?.length) {
-    data.songs.forEach(song => {
-      list.appendChild(createSongRow(song));
-    });
-  }
+  data.songs.forEach((song, index) => {
+    list.appendChild(
+      createSongRow(song, {
+        onClick: () => {
+          setPlaybackContext("search", data.songs, index);
+          playSong(song.id);
+        }
+      })
+    );
+  });
+}
 
   if (!data.playlists?.length && !data.songs?.length) {
     
@@ -477,8 +495,15 @@ function renderPlaylistSongs(playlist) {
   top.innerHTML = "";
   list.innerHTML = "";
 
-  playlist.songs.forEach(song => {
-    list.appendChild(createSongRow(song));
+  playlist.songs.forEach((song, index) => {
+    list.appendChild(
+      createSongRow(song, {
+        onClick: () => {
+          setPlaybackContext("playlist", playlist.songs, index);
+          playSong(song.id);
+        }
+      })
+    );
   });
 
   highlightCurrentSong();
@@ -733,7 +758,7 @@ function createSongCard(song) {
   return card;
 }
 
-function createSongRow(song) {
+function createSongRow(song, options = {}) {
 
   const row = document.createElement("div");
 
@@ -833,8 +858,14 @@ function createSongRow(song) {
   // ==========================
 
   row.addEventListener("click", () => {
-    playSong(song.id);
-  });
+  if (options.onClick) {
+    options.onClick();
+    return;
+  }
+
+  setPlaybackContext("suggestions", [song], 0);
+  playSong(song.id);
+});
 
   // ==========================
   // MORE BUTTON
