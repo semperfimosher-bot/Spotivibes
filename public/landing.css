@@ -16,6 +16,28 @@ html, body {
     background-repeat: no-repeat;
   }
 
+  .download-btn {
+  position: absolute;
+  top: 24px;
+  right: 28px;
+  height: 54px;
+  padding: 0 26px;
+  border-radius: 8px;
+  border: 1px solid #00b7ff;
+  background: rgba(0, 0, 0, 0.35);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 0 22px rgba(0, 183, 255, 0.24);
+  z-index: 10;
+}
+
+.download-btn:hover {
+  background: rgba(0, 183, 255, 0.14);
+}
+
+
   .landing-click {
     position: absolute;
     display: block;
@@ -40,27 +62,6 @@ html, body {
     background: rgba(59, 59, 59, 0.26);
     box-shadow: 0 0 18px rgba(255, 255, 255, 0);
   }
-
- .download-btn {
-  position: absolute;
-  top: 24px;
-  right: 28px;
-  height: 54px;
-  padding: 0 26px;
-  border-radius: 8px;
-  border: 1px solid #00b7ff;
-  background: rgba(0, 0, 0, 0.35);
-  color: white;
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 0 22px rgba(0, 183, 255, 0.24);
-  z-index: 10;
-}
-
-.download-btn:hover {
-  background: rgba(0, 183, 255, 0.14);
-}
 
   @media (max-width: 700px) {
     .landing {

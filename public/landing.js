@@ -1,32 +1,39 @@
 let deferredPrompt = null;
 
-const installBtn = document.getElementById("installBtn");
-
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
-
   deferredPrompt = event;
 
-  installBtn?.classList.remove("hidden");
+  console.log("PWA install prompt saved.");
+
+  const installBtn = document.getElementById("installBtn");
+  if (installBtn) {
+    installBtn.disabled = false;
+    installBtn.style.opacity = "1";
+  }
 });
 
-installBtn?.addEventListener("click", async () => {
-  if (!deferredPrompt) {
-    window.location.href = "/app";
+document.addEventListener("DOMContentLoaded", () => {
+  const installBtn = document.getElementById("installBtn");
+
+  if (!installBtn) {
+    console.warn("installBtn not found");
     return;
   }
 
-  deferredPrompt.prompt();
+  installBtn.addEventListener("click", async () => {
+    console.log("Install button clicked", deferredPrompt);
 
-  await deferredPrompt.userChoice;
+    if (!deferredPrompt) {
+      alert("Install is not ready yet. Refresh once, wait a few seconds, then try again.");
+      return;
+    }
 
-  deferredPrompt = null;
+    deferredPrompt.prompt();
 
-  installBtn.classList.add("hidden");
-});
+    const choice = await deferredPrompt.userChoice;
+    console.log("Install choice:", choice);
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js");
+    deferredPrompt = null;
   });
-}
+});
