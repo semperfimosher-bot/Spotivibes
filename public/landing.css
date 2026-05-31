@@ -7,14 +7,13 @@ html, body {
   }
 
   .landing {
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-    background-image: url("/assets/landing-desktop.png");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-  }
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  background-image: url("/assets/landing-desktop.png");
+  background-size: cover;
+  background-position: center;
+}
 
   .download-btn {
   position: absolute;
@@ -37,31 +36,52 @@ html, body {
   background: rgba(0, 183, 255, 0.14);
 }
 
+/* LOGIN BUTTON */
 
-  .landing-click {
-    position: absolute;
-    display: block;
-    border-radius: 10px;
-  }
+.login-btn {
+  position: absolute;
+  left: 18.5%;
+  top: 72%;
+  width: 360px;
+  height: auto;
+  display: block;
+  z-index: 10;
+}
 
-  .login-click {
-    left: 25.15%;
-    top: 68%;
-    width: 22%;
-    height: 10%;
-  }
+.login-btn img {
+  width: 100%;
+  display: block;
+  transition: all 0.25s ease;
+}
 
-  .register-click {
-    left: 52.6%;
-    top: 68%;
-    width: 22.25%;
-    height: 10%;
-  }
+.login-btn:hover img {
+  transform: scale(1.04);
+  filter: brightness(1.15);
+}
 
-  .landing-click:hover {
-    background: rgba(59, 59, 59, 0.26);
-    box-shadow: 0 0 18px rgba(255, 255, 255, 0);
-  }
+
+/* CREATE ACCOUNT BUTTON */
+
+.register-btn {
+  position: absolute;
+  left: 49%;
+  top: 72.25%;
+  width: 420px;
+  height: auto;
+  display: block;
+  z-index: 10;
+}
+
+.register-btn img {
+  width: 100%;
+  display: block;
+  transition: all 0.25s ease;
+}
+
+.register-btn:hover img {
+  transform: scale(1.04);
+  filter: brightness(1.15);
+}
 
   @media (max-width: 700px) {
     .landing {
