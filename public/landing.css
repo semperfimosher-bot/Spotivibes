@@ -34,6 +34,7 @@ html, body {
 
 .download-btn:hover {
   background: rgba(0, 183, 255, 0.14);
+  transform: scale(1.05);
 }
 
 /* LOGIN BUTTON */
@@ -41,7 +42,7 @@ html, body {
 .login-btn {
   position: absolute;
   left: 18.5%;
-  top: 72%;
+  top: 55%;
   width: 360px;
   height: auto;
   display: block;
@@ -49,14 +50,18 @@ html, body {
 }
 
 .login-btn img {
+
   width: 100%;
   display: block;
   transition: all 0.25s ease;
 }
 
 .login-btn:hover img {
-  transform: scale(1.04);
-  filter: brightness(1.15);
+  transform: scale(1.01);
+  filter:
+    brightness(1.08)
+    drop-shadow(0 0 2px #00bfff)
+    drop-shadow(0 0 7px rgba(0, 30, 255, 0.75));
 }
 
 
@@ -64,8 +69,8 @@ html, body {
 
 .register-btn {
   position: absolute;
-  left: 49%;
-  top: 72.25%;
+  left: 50%;
+  top: 55.25%;
   width: 420px;
   height: auto;
   display: block;
@@ -79,13 +84,38 @@ html, body {
 }
 
 .register-btn:hover img {
-  transform: scale(1.04);
-  filter: brightness(1.15);
+  transform: scale(1.01);
+  filter:
+    brightness(1.08)
+    drop-shadow(0 0 2px #53afff)
+    drop-shadow(0 0 7px rgb(0, 60, 255));
 }
 
-  @media (max-width: 700px) {
-    .landing {
-      background-size: contain;
-      background-color: #000;
-    }
+ @media (max-width: 700px) {
+  .landing {
+    background-image: url("/assets/landing-mobile.png");
+    background-size: cover;
+    background-position: center top;
   }
+
+  .login-btn {
+    left: 50%;
+    top: 67%;
+    width: 72vw;
+    transform: translateX(-50%);
+  }
+
+  .register-btn {
+    left: 50%;
+    top: 78%;
+    width: 72vw;
+    transform: translateX(-50%);
+  }
+
+  .download-btn {
+    top: 16px;
+    right: 16px;
+    font-size: 12px;
+    padding: 9px 14px;
+  }
+}
