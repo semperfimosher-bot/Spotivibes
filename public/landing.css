@@ -41,8 +41,8 @@ html, body {
 
 .login-btn {
   position: absolute;
-  left: 18.5%;
-  top: 55%;
+  left: 18%;
+  top: 56%;
   width: 360px;
   height: auto;
   display: block;
@@ -69,9 +69,9 @@ html, body {
 
 .register-btn {
   position: absolute;
-  left: 50%;
-  top: 55.25%;
-  width: 420px;
+  left: 53%;
+  top: 56%;
+  width: 410px;
   height: auto;
   display: block;
   z-index: 10;
@@ -87,8 +87,8 @@ html, body {
   transform: scale(1.01);
   filter:
     brightness(1.08)
-    drop-shadow(0 0 2px #53afff)
-    drop-shadow(0 0 7px rgb(0, 60, 255));
+    drop-shadow(0 0 2px #00bfff)
+    drop-shadow(0 0 7px rgba(0, 30, 255, 0.75));
 }
 
  @media (max-width: 700px) {
