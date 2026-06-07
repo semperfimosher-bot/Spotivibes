@@ -1112,11 +1112,19 @@ function renderLibrary() {
   const playlists = state.libraryPlaylists || [];
   const customPlaylists = state.customPlaylists || [];
 
-  if (!songs.length && !playlists.length) {
+  if (!songs.length && !playlists.length && !customPlaylists.length) {
     list.innerHTML = "<p style='color:#b3b3b3'>Your library is empty</p>";
   }
 
   playlists.forEach(p => {
+    list.appendChild(createSidebarPlaylistRow(p));
+
+    if (sidebarList) {
+      sidebarList.appendChild(createSidebarPlaylistRow(p));
+    }
+  });
+
+  customPlaylists.forEach(p => {
     list.appendChild(createSidebarPlaylistRow(p));
 
     if (sidebarList) {
