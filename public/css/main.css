@@ -749,6 +749,16 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
   background: #004cff;
 }
 
+.playlist-row.playlist-playing {
+  background: rgba(0, 76, 255, 0);
+  box-shadow: 0 0 8px rgba(0, 76, 255, 0.8);
+}
+
+.playlist-row.playlist-playing .playlist-title {
+  color: #004cff !important;
+  font-weight: 700;
+  text-shadow: 0 0 8px #004cff;
+}
 /* =========================
    SONG MENU
 ========================= */

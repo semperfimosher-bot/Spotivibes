@@ -64,6 +64,9 @@ function getSong(id) {
   const songId = String(id);
 
   return (
+    state.playbackContext?.songs
+      ?.find(s => String(s.id) === songId) ||
+
     state.songs?.find(s => String(s.id) === songId) ||
     state.library?.find(s => String(s.id) === songId) ||
     state.libraryPlaylists
@@ -625,6 +628,8 @@ async function restoreLastPlayback() {
   if (!song) return;
 
   state.currentId = song.id;
+
+  highlightCurrentSong?.();
 
   // instant UI update
   document.getElementById("nowPlayingText").innerText =

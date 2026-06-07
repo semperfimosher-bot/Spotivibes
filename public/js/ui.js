@@ -6,12 +6,15 @@ let activeDropdownIndex = -1;
 let currentDropdownItems = [];
 let suppressSearchDropdown = false;
 
-function setPlaybackContext(type, songs = [], index = 0) {
+function setPlaybackContext(type, songs = [], index = 0, playlistId = null) {
   state.playbackContext = {
     type,
     songs,
-    index
+    index,
+    playlistId
   };
+
+  highlightCurrentSong?.();
 }
 
 // ==========================
@@ -499,7 +502,7 @@ function renderPlaylistSongs(playlist) {
     list.appendChild(
       createSongRow(song, {
         onClick: () => {
-          setPlaybackContext("playlist", playlist.songs, index);
+          setPlaybackContext("playlist", playlist.songs, index, playlist.id || playlist.name);
           playSong(song.id);
         }
       })
@@ -617,13 +620,14 @@ function getPlaylistArt(playlist) {
 function createSidebarPlaylistRow(playlist) {
 
   const row = document.createElement("div");
-  row.className = "sidebar-library-row";
+  row.className = "sidebar-library-row playlist-row";
+  row.dataset.playlistId = playlist.id || playlist.name;
 
   row.innerHTML = `
    ${renderPlaylistArt(playlist)}
 
     <div class="sidebar-library-info">
-      <div>${playlist.name}</div>
+      <div class="playlist-title">${playlist.name}</div>
       <span>${playlist.songs.length} songs</span>
     </div>
 
@@ -896,7 +900,7 @@ function createCompactSongRow(song) {
     ></div>
 
     <div class="compact-info">
-      <div>${song.title || "Unknown Title"}</div>
+      <div class="song-title">${song.title || "Unknown Title"}</div>
       <div>${song.artist || "Unknown Artist"}</div>
     </div>
   `;
@@ -908,7 +912,8 @@ function createCompactSongRow(song) {
 
 function createSidebarLibraryRow(song) {
   const row = document.createElement("div");
-  row.className = "sidebar-library-row";
+  row.className = "sidebar-library-row playlist-row";
+  row.dataset.playlistId = playlist.id || playlist.name;
   row.dataset.id = song.id;
 
   row.innerHTML = `
@@ -1149,29 +1154,65 @@ function renderQueue() {
 // ==========================
 // HIGHLIGHT
 // ==========================
-function highlightCurrentSong() {
+function playlistContainsCurrentSong(playlist) {
+  if (!state.currentId || !playlist?.songs?.length) return false;
 
-  document.querySelectorAll(".song-title").forEach(title => {
-    title.style.color = "#fff";
-    title.style.fontWeight = "400";
+  return playlist.songs.some(
+    song => String(song.id) === String(state.currentId)
+  );
+}
+
+function highlightCurrentSong() {
+ document
+  .querySelectorAll(".song-title, .playlist-title, .compact-info div:first-child")
+  .forEach(title => {
+    title.style.color = "";
+    title.style.fontWeight = "";
+    title.style.textShadow = "";
+  });
+
+  document.querySelectorAll(".playlist-row").forEach(row => {
+    row.classList.remove("playlist-playing");
   });
 
   if (!state.currentId) return;
 
   document
-    .querySelectorAll(".row, .card, .sidebar-library-row")
-    .forEach(el => {
+  .querySelectorAll(".row, .card, .sidebar-library-row, .compact-song-row")
+  .forEach(el => {
+    if (String(el.dataset?.id) === String(state.currentId)) {
+      const title =
+        el.querySelector(".song-title") ||
+        el.querySelector(".compact-info div:first-child");
 
-      if (String(el.dataset?.id) === String(state.currentId)) {
-
-        const title = el.querySelector(".song-title");
-
-        if (title) {
-          title.style.color = "#004cff";
-          title.style.fontWeight = "600";
-        }
+      if (title) {
+        title.style.color = "#004cff";
+        title.style.fontWeight = "600";
+        title.style.textShadow = "0 0 8px #004cff";
       }
-    });
+    }
+  });
+
+  document.querySelectorAll(".playlist-row").forEach(row => {
+    const playlistId = row.dataset.playlistId;
+
+    const playlist = [
+      ...(state.libraryPlaylists || []),
+      ...(state.customPlaylists || [])
+    ].find(p => String(p.id || p.name) === String(playlistId));
+
+    if (playlistContainsCurrentSong(playlist)) {
+      row.classList.add("playlist-playing");
+
+      const title = row.querySelector(".playlist-title");
+
+      if (title) {
+        title.style.color = "#004cff";
+        title.style.fontWeight = "700";
+        title.style.textShadow = "0 0 8px #004cff";
+      }
+    }
+  });
 }
 
 function openSongMenu(song, button) {
