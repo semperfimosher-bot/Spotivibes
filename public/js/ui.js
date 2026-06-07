@@ -912,8 +912,7 @@ function createCompactSongRow(song) {
 
 function createSidebarLibraryRow(song) {
   const row = document.createElement("div");
-  row.className = "sidebar-library-row playlist-row";
-  row.dataset.playlistId = playlist.id || playlist.name;
+  row.className = "sidebar-library-row";
   row.dataset.id = song.id;
 
   row.innerHTML = `
