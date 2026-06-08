@@ -1629,9 +1629,7 @@ function initMoreSheet() {
   const openVoiceDjBtn = document.getElementById("openVoiceDj");
 
   openInfoBtn?.addEventListener("click", () => {
-  const song = state.songs.find(
-    s => String(s.id) === String(state.currentId)
-  );
+  const song = getSong(state.currentId);
 
   if (!song) {
     songInfoContent.innerHTML =
