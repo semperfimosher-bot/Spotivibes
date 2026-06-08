@@ -1342,7 +1342,7 @@ const result = await pool.query(
       similarity(COALESCE(genre, ''), $2)
     ) DESC,
     id DESC
-  LIMIT 50
+  LIMIT 500
   `,
   [search, q]
 );

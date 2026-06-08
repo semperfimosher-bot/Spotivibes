@@ -54,7 +54,7 @@ async function loadSongs(reset = true) {
 
 try {
   const cursorParam = songsCursor ? `&cursor=${songsCursor}` : "";
-data = await apiFetch(`/api/songs?limit=50${cursorParam}`);
+data = await apiFetch(`/api/songs?limit=500${cursorParam}`);
 } catch (err) {
   console.warn("Failed to load songs:", err.message);
   songsLoading = false;
