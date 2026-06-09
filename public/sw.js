@@ -1,34 +1,32 @@
-const CACHE_NAME = "spotivibes-v1";
+const STATIC_CACHE = "spotivibes-static-v1";
+const AUDIO_CACHE = "spotivibes-audio-v1";
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", event => {
   self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => caches.delete(key))
-      )
-    )
-  );
-
-  self.clients.claim();
+self.addEventListener("activate", event => {
+  event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener("fetch", event => {
+  const url = new URL(event.request.url);
+
+  // Offline audio cache
+  if (event.request.destination === "audio") {
+    event.respondWith(
+      caches.open(AUDIO_CACHE).then(async cache => {
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+
+        const res = await fetch(event.request);
+        return res;
+      })
+    );
+    return;
+  }
+
   event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request).then(cached => {
-        return cached || new Response("Offline", {
-          status: 503,
-          headers: {
-            "Content-Type": "text/plain"
-          }
-        });
-      });
-    })
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });

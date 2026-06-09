@@ -105,6 +105,33 @@ try {
 
 const lyricsCache = new Map();
 
+const OFFLINE_AUDIO_CACHE = "spotivibes-audio-v1";
+const OFFLINE_SONGS_KEY = "spotivibes_offline_songs";
+
+async function downloadSongOffline(song) {
+  const audioUrl = await getAudioUrl(song.id);
+  if (!audioUrl) throw new Error("No audio URL");
+
+  const res = await fetch(audioUrl);
+  if (!res.ok) throw new Error("Failed to download song");
+
+  const cache = await caches.open(OFFLINE_AUDIO_CACHE);
+  await cache.put(`/offline-audio/${song.id}`, res.clone());
+
+  const offlineSongs = JSON.parse(localStorage.getItem(OFFLINE_SONGS_KEY) || "{}");
+  offlineSongs[song.id] = song;
+  localStorage.setItem(OFFLINE_SONGS_KEY, JSON.stringify(offlineSongs));
+}
+
+function getOfflineSongUrl(songId) {
+  return `/offline-audio/${songId}`;
+}
+
+function isSongDownloaded(songId) {
+  const offlineSongs = JSON.parse(localStorage.getItem(OFFLINE_SONGS_KEY) || "{}");
+  return !!offlineSongs[songId];
+}
+
 async function getLyrics(song) {
   if (!song?.id) return null;
 

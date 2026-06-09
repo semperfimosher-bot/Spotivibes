@@ -92,7 +92,15 @@ async function playSong(id) {
 
   trackListeningStats(song).catch(console.warn);
 
-  const audioUrl = await getCachedAudioUrl(song.id);
+  let audioUrl;
+
+if (!navigator.onLine && isSongDownloaded(song.id)) {
+  audioUrl = getOfflineSongUrl(song.id);
+} else if (isSongDownloaded(song.id)) {
+  audioUrl = getOfflineSongUrl(song.id);
+} else {
+  audioUrl = await getCachedAudioUrl(song.id);
+}
 
   if (!audioUrl) {
     console.error("No audio URL found for song:", song);

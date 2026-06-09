@@ -535,6 +535,10 @@ function createGeneratedPlaylistCard(playlist) {
     <button class="playlist-add-btn">
       Add
     </button>
+
+    <button onclick="downloadSongOffline(getSong('${song.id}'))">
+      Download
+    </button>
   `;
 
   row.addEventListener("click", () => {
