@@ -1030,7 +1030,7 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
 
   gap: 6px;
 
-  background: #000000;
+  background: #00000000;
 
   z-index: 50;
 }
