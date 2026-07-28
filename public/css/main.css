@@ -1221,7 +1221,7 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
 
   background: linear-gradient(
     to right,
-    #004cff var(--progress, 0%),
+    #295eff var(--progress, 0%),
     #2a2a2a var(--progress, 0%)
   );
 }
@@ -1325,6 +1325,7 @@ scrollbar-color: rgba(79, 72, 72, 0) transparent;
 
 #moreSheet button:hover {
   background: #2a2a2a;
+  border-radius: 8px;
 }
 
 #songInfoModal {

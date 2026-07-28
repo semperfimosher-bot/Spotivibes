@@ -46,6 +46,25 @@ async function initDB() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS activity_events (
+      id BIGSERIAL PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      first_name TEXT,
+      last_name TEXT,
+      email TEXT,
+      path TEXT,
+      method TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      is_bot BOOLEAN DEFAULT false,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      read_at TIMESTAMPTZ
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT
@@ -204,6 +223,16 @@ await pool.query(`
 await pool.query(`
   CREATE INDEX IF NOT EXISTS idx_user_library_user_song_fast
   ON user_library (user_id, song_id DESC)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_activity_events_created_at
+  ON activity_events (created_at DESC)
+`);
+
+await pool.query(`
+  CREATE INDEX IF NOT EXISTS idx_activity_events_unread
+  ON activity_events (read_at, created_at DESC)
 `);
 
 await pool.query(`

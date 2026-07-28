@@ -17,6 +17,11 @@ const {
 } = require("../services/notification.service");
 
 const {
+  normalizeEmail,
+  recordRequestActivity
+} = require("../services/activity.service");
+
+const {
   b2,
   getPublicCoverUrl,
   B2_COVER_BUCKET_NAME,
@@ -91,6 +96,13 @@ router.post("/register", async (req, res) => {
       role
     };
 
+    await recordRequestActivity(req, "REGISTER_SUCCESS", {
+      userId: result.rows[0].id,
+      firstName,
+      lastName,
+      email
+    });
+
     res.json({ success: true });
 
   } catch (err) {
@@ -116,6 +128,11 @@ router.post("/login", async (req, res) => {
     const user = result.rows[0];
 
     if (!user || typeof user.password !== "string") {
+      await recordRequestActivity(req, "LOGIN_FAILED", {
+        email: normalizeEmail(email),
+        metadata: { reason: "unknown_account" }
+      });
+
       return res.status(401).json({
         error: "Invalid login"
       });
@@ -125,12 +142,20 @@ router.post("/login", async (req, res) => {
       await bcrypt.compare(password, user.password);
 
     if (!match) {
+      await recordRequestActivity(req, "LOGIN_FAILED", {
+        userId: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        metadata: { reason: "incorrect_password" }
+      });
+
       return res.status(401).json({
         error: "Invalid login"
       });
     }
 
-    req.session.regenerate(err => {
+    req.session.regenerate(async err => {
       if (err) {
         return res.status(500).json({
           error: "Session error"
@@ -144,6 +169,13 @@ router.post("/login", async (req, res) => {
         lastName: user.last_name,
         role: user.role
       };
+
+      await recordRequestActivity(req, "LOGIN_SUCCESS", {
+        userId: user.id,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email
+      });
 
       res.json({
         success: true,

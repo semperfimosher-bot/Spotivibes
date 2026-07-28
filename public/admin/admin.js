@@ -1,3 +1,6 @@
+let currentAdminPage = "library";
+let activityLoading = false;
+
 async function verifyAdminAccess() {
   try {
     await loadConfig();
@@ -22,8 +25,10 @@ async function verifyAdminAccess() {
 function show(page) {
   document.querySelectorAll(".main > div").forEach(d => d.classList.add("hidden"));
   document.getElementById(page).classList.remove("hidden");
+  currentAdminPage = page;
 
   if (page === "notifications") loadNotifications();
+  if (page === "activity") loadActivity({ markRead: true });
 }
 
 document.querySelectorAll("[data-page]").forEach(btn => {
@@ -443,6 +448,246 @@ document.querySelectorAll(".deleteNotificationBtn")
   });
 }
 
+/* VISITOR + LOGIN ACTIVITY */
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatActivityTime(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Unknown time"
+    : date.toLocaleString();
+}
+
+function getActivityTitle(activity) {
+  if (activity.event_type === "LOGIN_SUCCESS") {
+    return activity.is_bot ? "Bot login succeeded" : "Login succeeded";
+  }
+
+  if (activity.event_type === "LOGIN_FAILED") {
+    return activity.is_bot ? "Bot login failed" : "Login failed";
+  }
+
+  if (activity.event_type === "REGISTER_SUCCESS") {
+    return activity.is_bot ? "Bot account registered" : "Account registered";
+  }
+
+  if (activity.event_type === "PAGE_VIEW") {
+    if (activity.is_bot) return "Bot visited the app";
+    if (activity.user_id) return "Signed-in user visited the app";
+    return "Anonymous visitor opened the app";
+  }
+
+  return String(activity.event_type || "Activity")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function getActivityIdentity(activity) {
+  const fullName = [activity.first_name, activity.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  const parts = [];
+
+  if (fullName) parts.push(`<strong>${escapeHtml(fullName)}</strong>`);
+  if (activity.email) parts.push(escapeHtml(activity.email));
+
+  if (parts.length) return parts.join(" · ");
+  return activity.is_bot ? "Automated visitor" : "Anonymous visitor";
+}
+
+function renderActivity(activity) {
+  const tags = [];
+
+  if (activity.is_bot) {
+    tags.push('<span class="activity-tag bot">Bot</span>');
+  }
+
+  if (activity.event_type === "LOGIN_FAILED") {
+    tags.push('<span class="activity-tag failed">Failed</span>');
+  }
+
+  if (!activity.read_at) {
+    tags.push('<span class="activity-tag">New</span>');
+  }
+
+  const requestLine = [activity.method, activity.path]
+    .filter(Boolean)
+    .map(escapeHtml)
+    .join(" ");
+
+  const details = [];
+  const metadata = activity.metadata && typeof activity.metadata === "object"
+    ? activity.metadata
+    : {};
+
+  if (requestLine) details.push(requestLine);
+  if (activity.ip_address) details.push(`Network: ${escapeHtml(activity.ip_address)}`);
+  if (metadata.country) details.push(`Country: ${escapeHtml(metadata.country)}`);
+  if (metadata.referrerOrigin) {
+    details.push(`Referrer: ${escapeHtml(metadata.referrerOrigin)}`);
+  }
+  if (metadata.pageTitle) details.push(`Page: ${escapeHtml(metadata.pageTitle)}`);
+  if (metadata.reason) {
+    const reasonLabels = {
+      unknown_account: "Unknown account",
+      incorrect_password: "Incorrect password",
+      rate_limited: "Rate limited"
+    };
+
+    details.push(`Reason: ${escapeHtml(reasonLabels[metadata.reason] || metadata.reason)}`);
+  }
+  if (activity.user_agent) details.push(`Client: ${escapeHtml(activity.user_agent)}`);
+
+  return `
+    <article class="activity-item ${activity.read_at ? "" : "unread"}">
+      <div class="activity-item-header">
+        <div>
+          <div class="activity-title">${escapeHtml(getActivityTitle(activity))}</div>
+          <div>${tags.join("")}</div>
+        </div>
+        <div class="activity-time">${escapeHtml(formatActivityTime(activity.created_at))}</div>
+      </div>
+
+      <div class="activity-identity">${getActivityIdentity(activity)}</div>
+
+      <div class="activity-details">
+        ${details.map(detail => `<div>${detail}</div>`).join("")}
+      </div>
+    </article>
+  `;
+}
+
+async function loadUnreadActivityCount() {
+  try {
+    const data = await apiFetch("/api/admin/activity/unread-count", {
+      credentials: "include",
+      cache: "no-store"
+    });
+
+    const count = Number(data?.count || 0);
+    const badge = document.getElementById("activityUnreadBadge");
+
+    if (badge) {
+      badge.textContent = count > 999 ? "999+" : String(count);
+      badge.classList.toggle("hidden", count === 0);
+    }
+
+    document.title = count > 0
+      ? `(${count}) Admin Panel`
+      : "Admin Panel";
+  } catch (err) {
+    console.warn("Activity count failed:", err.message);
+  }
+}
+
+async function markAllActivityRead(ids = []) {
+  await apiFetch("/api/admin/activity/mark-read", {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ ids })
+  });
+}
+
+async function loadActivity({ markRead = false } = {}) {
+  const list = document.getElementById("activityList");
+  const summary = document.getElementById("activitySummary");
+  const filter = document.getElementById("activityFilter")?.value || "all";
+
+  if (!list || !summary || activityLoading) return;
+
+  activityLoading = true;
+  summary.textContent = "Loading activity…";
+
+  try {
+    const data = await apiFetch(
+      `/api/admin/activity?limit=100&filter=${encodeURIComponent(filter)}`,
+      {
+        credentials: "include",
+        cache: "no-store"
+      }
+    );
+
+    const activities = data?.activities || [];
+    const total = Number(data?.total || 0);
+
+    summary.textContent = total === 1
+      ? "1 matching activity record"
+      : `${total} matching activity records`;
+
+    list.innerHTML = activities.length
+      ? activities.map(renderActivity).join("")
+      : '<div class="empty-state">No activity matches this filter.</div>';
+
+    if (markRead && activities.length) {
+      try {
+        await markAllActivityRead(activities.map(activity => activity.id));
+      } catch (err) {
+        console.warn("Mark activity read failed:", err.message);
+      }
+    }
+
+    await loadUnreadActivityCount();
+  } catch (err) {
+    summary.textContent = "Activity could not be loaded.";
+    list.innerHTML = `<div class="empty-state">${escapeHtml(err.message || "Failed to load activity")}</div>`;
+  } finally {
+    activityLoading = false;
+  }
+}
+
+document.getElementById("activityFilter")
+  ?.addEventListener("change", () => loadActivity({ markRead: true }));
+
+document.getElementById("refreshActivityBtn")
+  ?.addEventListener("click", () => loadActivity({ markRead: true }));
+
+document.getElementById("markActivityReadBtn")
+  ?.addEventListener("click", async () => {
+    try {
+      await markAllActivityRead();
+      await loadActivity();
+    } catch (err) {
+      alert(err.message || "Failed to mark activity as read");
+    }
+  });
+
+document.getElementById("clearActivityBtn")
+  ?.addEventListener("click", async () => {
+    if (!confirm("Clear all visitor and login activity?")) return;
+
+    try {
+      await apiFetch("/api/admin/activity", {
+        method: "DELETE",
+        credentials: "include"
+      });
+
+      await loadActivity();
+    } catch (err) {
+      alert(err.message || "Failed to clear activity");
+    }
+  });
+
+async function pollActivity() {
+  await loadUnreadActivityCount();
+
+  if (currentAdminPage === "activity" && document.visibilityState === "visible") {
+    await loadActivity({ markRead: true });
+  }
+}
+
 document.getElementById("deleteAllContentBtn")
   ?.addEventListener("click", async () => {
     const code = prompt("Enter delete code:");
@@ -524,6 +769,7 @@ document.getElementById("deleteAllContentBtn")
   if (!allowed) return;
 
   setInterval(loadUploadStatus, 2000);
+  setInterval(pollActivity, 10000);
 
   window.addEventListener("focus", verifyAdminAccess);
 
@@ -531,5 +777,6 @@ document.getElementById("deleteAllContentBtn")
   loadSongs();
   loadDuplicates();
   loadNotifications();
+  loadUnreadActivityCount();
  
 })();

@@ -17,7 +17,12 @@ const adminRoutes = require("./routes/admin.routes");
 const playlistRoutes = require("./routes/playlist.routes");
 const usersRoutes = require("./routes/users.routes");
 const statsRoutes = require("./routes/stats.routes");
+const activityRoutes = require("./routes/activity.routes");
 const helmet = require("helmet");
+const {
+  recordRequestActivity,
+  shouldTrackPageRequest
+} = require("./services/activity.service");
 
 const {
   createMissingArtistsNotification
@@ -82,6 +87,28 @@ app.use(session({
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+
+// Track real page navigations, not every image, script, API call, health check,
+// or service-worker request. The write happens after the response and can never
+// block a visitor from loading the app.
+app.use((req, res, next) => {
+  if (shouldTrackPageRequest(req)) {
+    res.on("finish", () => {
+      if (res.statusCode < 400) {
+        const pagePath = req.path && req.path.length > 1
+          ? req.path.replace(/\/+$/, "")
+          : req.path;
+
+        recordRequestActivity(req, "PAGE_VIEW", {
+          path: pagePath,
+          method: req.method
+        });
+      }
+    });
+  }
+
+  next();
+});
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -153,7 +180,15 @@ app.get("/app", (req, res) => {
 app.use("/api/login", rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { error: "Too many login attempts. Try again later." }
+  message: { error: "Too many login attempts. Try again later." },
+  handler: (req, res, next, options) => {
+    recordRequestActivity(req, "LOGIN_FAILED", {
+      email: req.body?.email,
+      metadata: { reason: "rate_limited" }
+    });
+
+    res.status(options.statusCode).json(options.message);
+  }
 }));
 
 app.use("/api/register", rateLimit({
@@ -163,6 +198,7 @@ app.use("/api/register", rateLimit({
 }));
 
 app.use("/api", authRoutes);
+app.use("/api/activity", activityRoutes);
 app.use("/api/library", libraryRoutes);
 app.use("/api", songRoutes);
 app.use("/api", adminRoutes);

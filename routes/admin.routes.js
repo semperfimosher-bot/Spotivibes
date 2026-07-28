@@ -406,6 +406,138 @@ router.get("/notifications", requireLogin, async (req, res) => {
   }
 });
 
+/* ---------------- VISITOR + LOGIN ACTIVITY ---------------- */
+
+router.get("/admin/activity", requireAdmin, async (req, res) => {
+  try {
+    res.set("Cache-Control", "no-store");
+
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const requestedOffset = Number.parseInt(req.query.offset, 10);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 200)
+      : 100;
+    const offset = Number.isFinite(requestedOffset)
+      ? Math.min(Math.max(requestedOffset, 0), 10000)
+      : 0;
+    const filter = String(req.query.filter || "all").toLowerCase();
+
+    const conditions = [];
+
+    if (filter === "unread") {
+      conditions.push("read_at IS NULL");
+    } else if (filter === "logins") {
+      conditions.push("event_type IN ('LOGIN_SUCCESS', 'LOGIN_FAILED', 'REGISTER_SUCCESS')");
+    } else if (filter === "visits") {
+      conditions.push("event_type = 'PAGE_VIEW'");
+    } else if (filter === "bots") {
+      conditions.push("is_bot = true");
+    } else if (filter === "failed") {
+      conditions.push("event_type = 'LOGIN_FAILED'");
+    }
+
+    const where = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        event_type,
+        user_id,
+        first_name,
+        last_name,
+        email,
+        path,
+        method,
+        ip_address,
+        user_agent,
+        is_bot,
+        metadata,
+        created_at,
+        read_at,
+        COUNT(*) OVER()::int AS total_count
+      FROM activity_events
+      ${where}
+      ORDER BY created_at DESC
+      LIMIT $1 OFFSET $2
+      `,
+      [limit, offset]
+    );
+
+    res.json({
+      activities: result.rows,
+      total: result.rows[0]?.total_count || 0,
+      limit,
+      offset,
+      filter
+    });
+  } catch (err) {
+    console.error("ACTIVITY LIST ERROR:", err);
+    res.status(500).json({ error: "Failed to load activity" });
+  }
+});
+
+router.get("/admin/activity/unread-count", requireAdmin, async (req, res) => {
+  try {
+    res.set("Cache-Control", "no-store");
+
+    const result = await pool.query(`
+      SELECT COUNT(*)::int AS count
+      FROM activity_events
+      WHERE read_at IS NULL
+    `);
+
+    res.json({ count: result.rows[0]?.count || 0 });
+  } catch (err) {
+    console.error("ACTIVITY COUNT ERROR:", err);
+    res.status(500).json({ error: "Failed to load activity count" });
+  }
+});
+
+router.post("/admin/activity/mark-read", requireAdmin, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids)
+      ? req.body.ids
+          .map(value => Number.parseInt(value, 10))
+          .filter(value => Number.isSafeInteger(value) && value > 0)
+          .slice(0, 200)
+      : [];
+
+    const result = ids.length
+      ? await pool.query(
+          `
+          UPDATE activity_events
+          SET read_at = NOW()
+          WHERE read_at IS NULL
+            AND id = ANY($1::bigint[])
+          `,
+          [ids]
+        )
+      : await pool.query(`
+          UPDATE activity_events
+          SET read_at = NOW()
+          WHERE read_at IS NULL
+        `);
+
+    res.json({ success: true, updated: result.rowCount });
+  } catch (err) {
+    console.error("ACTIVITY MARK READ ERROR:", err);
+    res.status(500).json({ error: "Failed to mark activity as read" });
+  }
+});
+
+router.delete("/admin/activity", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query("DELETE FROM activity_events");
+    res.json({ success: true, deleted: result.rowCount });
+  } catch (err) {
+    console.error("ACTIVITY CLEAR ERROR:", err);
+    res.status(500).json({ error: "Failed to clear activity" });
+  }
+});
+
 router.get("/upload-status", requireAdmin, async (req, res) => {
   const result = await pool.query(
     `

@@ -35,6 +35,27 @@
     color: #0d00ff;
   }
 
+  .sidebar p {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .activity-badge {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+  }
+
   .main {
     flex: 1;
     padding: 30px;
@@ -225,6 +246,115 @@
   background: #7a0000;
 }
 
+.activity-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.activity-actions,
+.activity-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activity-filters select {
+  padding: 8px 10px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #111;
+  color: #fff;
+}
+
+.activity-summary {
+  color: #aaa;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.activity-item {
+  position: relative;
+  background: #171717;
+  border: 1px solid #292929;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 8px 0;
+}
+
+.activity-item.unread {
+  border-color: rgba(0, 26, 255, 0.7);
+  box-shadow: inset 3px 0 0 #001aff;
+}
+
+.activity-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activity-title {
+  font-weight: bold;
+}
+
+.activity-time {
+  color: #888;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.activity-identity {
+  margin-top: 7px;
+  font-size: 14px;
+}
+
+.activity-details {
+  margin-top: 8px;
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.activity-tag {
+  display: inline-block;
+  padding: 2px 7px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: #292929;
+  color: #ddd;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.activity-tag.bot {
+  background: #4a2d00;
+  color: #ffd08a;
+}
+
+.activity-tag.failed {
+  background: #4a0000;
+  color: #ffaaaa;
+}
+
+#clearActivityBtn {
+  background: #650000;
+}
+
+.empty-state {
+  padding: 24px;
+  border: 1px dashed #333;
+  border-radius: 10px;
+  color: #888;
+  text-align: center;
+}
+
 </style>
 </head>
 
@@ -242,6 +372,10 @@
     <p data-page="upload"> Upload</p>
     <p data-page="settings"> Settings</p>
     <p data-page="notifications"> Notifications</p>
+    <p data-page="activity">
+      <span>Activity</span>
+      <span id="activityUnreadBadge" class="activity-badge hidden">0</span>
+    </p>
   </div>
 
   <div class="main">
@@ -298,6 +432,36 @@
 
   <div id="notifList"></div>
 </div>
+
+    <div id="activity" class="hidden">
+      <h2>Visitor & Login Activity</h2>
+
+      <div class="activity-toolbar">
+        <div class="activity-filters">
+          <label for="activityFilter">Show:</label>
+          <select id="activityFilter">
+            <option value="all">All activity</option>
+            <option value="unread">Unread only</option>
+            <option value="logins">Logins & registrations</option>
+            <option value="failed">Failed logins</option>
+            <option value="visits">Page visits</option>
+            <option value="bots">Bots</option>
+          </select>
+        </div>
+
+        <div class="activity-actions">
+          <button id="refreshActivityBtn">Refresh</button>
+          <button id="markActivityReadBtn">Mark all read</button>
+          <button id="clearActivityBtn">Clear activity</button>
+        </div>
+      </div>
+
+      <div id="activitySummary" class="activity-summary">
+        Loading activity…
+      </div>
+
+      <div id="activityList"></div>
+    </div>
 
   </div>
 
